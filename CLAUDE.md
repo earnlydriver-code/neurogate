@@ -32,7 +32,10 @@ arquitectura, contratos entre módulos y el roadmap de 11 pasos.
 - **Idioma**: identificadores (funciones, clases, variables) en **inglés**;
   docstrings, comentarios, README y documentación en **español**.
 - **Legibilidad primero**: este código es también material de estudio.
-  Claridad antes que cleverness. Comentarios que expliquen el *porqué*.
+  Claridad antes que cleverness.
+- **Comentarios sencillos y cortos**: docstrings de 1-2 líneas, comentarios
+  solo donde el código no se explica solo. Nada extenso salvo que el código
+  realmente lo necesite.
 - Funciones no implementadas: `raise NotImplementedError`, nunca `pass`
   silencioso.
 - Stack fijo: Python 3.11+, numpy, scipy, scikit-learn, cryptography,

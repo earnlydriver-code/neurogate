@@ -1,13 +1,4 @@
-"""El filtro de consentimiento: cada app solo recibe lo que tiene autorizado.
-
-La pieza estrella del sistema. Mantiene el registro de apps y sus permisos
-por TIPO de dato, y aprueba o rechaza cada solicitud antes de que nada salga.
-Una app de mensajes quizá solo puede recibir texto que el usuario confirmó;
-jamás la señal cruda del cerebro.
-
-Incluye el "modo confirmación": cuando está activo, nada sale sin la
-aprobación explícita del usuario, aunque el permiso exista.
-"""
+"""Filtro de consentimiento: cada app solo recibe el tipo de dato autorizado."""
 
 from __future__ import annotations
 
@@ -17,23 +8,16 @@ from enum import Enum
 
 
 class DataType(Enum):
-    """Los tipos de dato neuronal que una app puede solicitar.
+    """Tipos de dato neuronal, de más a menos sensible."""
 
-    Ordenados de más sensible a menos sensible.
-    """
-
-    RAW_SIGNAL = "raw_signal"          # señal cruda del cerebro (máxima sensibilidad)
-    INTENT = "intent"                  # intención decodificada (mover, escribir, nada)
-    CONFIRMED_TEXT = "confirmed_text"  # texto que el usuario aprobó explícitamente
+    RAW_SIGNAL = "raw_signal"
+    INTENT = "intent"
+    CONFIRMED_TEXT = "confirmed_text"
 
 
 @dataclass(frozen=True)
 class AccessRequest:
-    """Una solicitud de datos hecha por una app al gateway.
-
-    Es el objeto que viaja por todas las defensas: consent la autoriza,
-    anomaly la puntúa y audit la registra.
-    """
+    """Solicitud de datos de una app; viaja por todas las defensas."""
 
     app_id: str
     data_type: DataType
@@ -42,39 +26,29 @@ class AccessRequest:
 
 @dataclass(frozen=True)
 class Decision:
-    """El veredicto del filtro de consentimiento sobre una solicitud."""
+    """Veredicto del filtro: permitido o no, y por qué."""
 
     allowed: bool
-    reason: str  # siempre explicamos el porqué: alimenta el log de auditoría
+    reason: str
 
 
 class ConsentFilter:
-    """Registro de apps y sus permisos; decide cada solicitud."""
+    """Registro de apps y permisos; decide cada solicitud."""
 
     def __init__(self, confirmation_mode: bool = False) -> None:
-        """Args:
-            confirmation_mode: si True, toda entrega requiere además la
-                aprobación explícita del usuario.
-        """
-        # TODO (Paso 4): inicializar el registro de apps (dict app_id ->
-        # conjunto de DataType permitidos) y el estado del modo confirmación.
+        # confirmation_mode: si True, nada sale sin aprobación explícita del usuario.
+        # TODO (Paso 4)
         raise NotImplementedError("Se implementa en el Paso 4")
 
     def register_app(self, app_id: str, allowed_types: set[DataType]) -> None:
-        """Da de alta una app con los tipos de dato que puede recibir."""
-        # TODO (Paso 4): guardar los permisos de la app.
+        """Da de alta una app con sus tipos de dato permitidos."""
+        # TODO (Paso 4)
         raise NotImplementedError("Se implementa en el Paso 4")
 
     def check(self, request: AccessRequest) -> Decision:
-        """Decide si una solicitud está autorizada.
-
-        Reglas: app no registrada -> denegada; tipo de dato fuera de sus
-        permisos -> denegada; modo confirmación activo sin aprobación del
-        usuario -> denegada. Solo si todo pasa, se permite.
-        """
-        # TODO (Paso 4): aplicar las reglas y devolver Decision con motivo.
+        """Decide si la solicitud está autorizada."""
+        # TODO (Paso 4): app no registrada o tipo fuera de permisos -> denegada.
         raise NotImplementedError("Se implementa en el Paso 4")
 
 
-# TODO (Paso 4): demo ejecutable `python -m neurogate.consent`: una app
-# legítima recibe solo lo suyo y una app sin permiso es rechazada.
+# TODO (Paso 4): demo `python -m neurogate.consent`: app legítima pasa, intrusa no.
