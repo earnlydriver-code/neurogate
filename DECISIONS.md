@@ -29,5 +29,17 @@ Decisiones tomadas sin consultar, por ser la opción más simple compatible con
   nunca pedidos disparan alerta) de forma robusta y honesta. El Isolation Forest
   sigue siendo el núcleo, como pide el spec. No afecta contratos ni la v2 (la
   v2 enriquece las features de telemetría, pero la idea híbrida se conserva).
+- **Refinado tras la revisión de código (2026-06-10):**
+  - *Detector de un solo lado*: en este dominio solo las ráfagas (intervalos
+    anormalmente cortos) son ataque; una pausa larga jamás lo es. Al puntuar,
+    el intervalo se recorta a la mediana del baseline (`_typical_interval`),
+    sacando los intervalos largos del espacio de anomalía. (Se usa la mediana y
+    no el máximo: el máximo cae en la cola que el propio iForest marca como
+    anómala con contamination=0.02.) Antes, un usuario clicando a ritmo humano
+    quedaba en cuarentena.
+  - *Warm-up al registrar*: `register_app` siembra los tipos permitidos de la
+    app como "ya vistos" (`AnomalyDetector.warm_up`), para que una app legítima
+    registrada después del baseline no quede inutilizada por la regla de
+    novedad. La regla sigue viva para tipos fuera de su permiso.
 
 ---

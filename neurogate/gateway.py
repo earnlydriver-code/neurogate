@@ -55,8 +55,16 @@ class Gateway:
         """Registra una app en consent y crypto; devuelve su clave de cifrado."""
         self.consent.register_app(app_id, allowed_types)
         key = self.crypto.register_app(app_id)
-        self.app_status[app_id] = "ok"
+        # Siembra sus tipos permitidos como vistos (no cae en la regla de novedad).
+        self.anomaly.warm_up(app_id, allowed_types)
+        # No toca el estado de un app_id ya existente: re-registrarse no limpia cuarentenas.
+        self.app_status.setdefault(app_id, "ok")
         return key
+
+    def release_quarantine(self, app_id: str) -> None:
+        """Salida de cuarentena solo por esta acción explícita."""
+        if self.app_status.get(app_id) == "quarantine":
+            self.app_status[app_id] = "ok"
 
     def prime_anomaly(self, n_per_app: int = 200, seed: int = 0) -> None:
         """Construye un baseline de accesos normales para cada app y entrena el detector."""
@@ -94,6 +102,10 @@ class Gateway:
     def handle_request(self, request: AccessRequest) -> GatewayResponse:
         """Procesa una solicitud por todo el pipeline de defensas."""
         self.counters["requests"] += 1
+
+        # 0. Cuarentena: una app en cuarentena no recibe nada (y todo se audita).
+        if self.app_status.get(request.app_id) == "quarantine":
+            return self._block(request, "app en cuarentena")
 
         # 1. Consentimiento.
         decision = self.consent.check(request)

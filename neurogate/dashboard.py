@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -25,15 +26,23 @@ from neurogate.gateway import build_demo_gateway  # noqa: E402
 from neurogate.signal_source import INTENTS  # noqa: E402
 from tests.attack_sim import simulate_attack  # noqa: E402
 
-_AUDIT_PATH = Path(tempfile.gettempdir()) / "neurogate_dashboard_audit.jsonl"
 _STATUS_ICON = {"ok": "🟢", "quarantine": "🟡", "blocked": "🔴"}
+
+
+def new_session_audit_path() -> Path:
+    """Archivo de auditoría único por sesión: nadie pisa el log de otra."""
+    return Path(tempfile.gettempdir()) / f"neurogate_audit_{uuid.uuid4().hex}.jsonl"
 
 
 def _get_gateway(reset: bool = False):
     """Gateway persistente en la sesión (se reconstruye al reiniciar)."""
     if reset or "gateway" not in st.session_state:
-        _AUDIT_PATH.unlink(missing_ok=True)
-        st.session_state.gateway = build_demo_gateway(audit_path=_AUDIT_PATH)
+        old = st.session_state.get("audit_path")
+        if old is not None:
+            Path(old).unlink(missing_ok=True)  # limpia solo el archivo propio
+        path = new_session_audit_path()
+        st.session_state.audit_path = path
+        st.session_state.gateway = build_demo_gateway(audit_path=path)
         st.session_state.narration = []
     return st.session_state.gateway
 

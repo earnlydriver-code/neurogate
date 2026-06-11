@@ -7,6 +7,7 @@ puntúa cada solicitud nueva.
 
 from __future__ import annotations
 
+import statistics
 import time
 from dataclasses import dataclass
 
@@ -40,6 +41,7 @@ class AnomalyDetector:
         self._model = IsolationForest(contamination=contamination, random_state=seed)
         self._last_ts: dict[str, float] = {}          # último acceso por app -> intervalo
         self._seen_types: dict[str, set[DataType]] = {}  # tipos vistos por app
+        self._typical_interval = _DEFAULT_INTERVAL    # intervalo típico (mediana) del baseline
         self._trained = False
 
     @property
@@ -49,6 +51,14 @@ class AnomalyDetector:
     def clear_timing(self) -> None:
         """Olvida los timestamps del baseline (la primera petición real parte de cero)."""
         self._last_ts.clear()
+
+    def warm_up(self, app_id: str, data_types: set[DataType]) -> None:
+        """Siembra los tipos permitidos de una app como 'ya vistos'.
+
+        Así una app legítima registrada tras el baseline no cae en la regla de
+        novedad por su propio permiso; la regla sigue viva para tipos ajenos.
+        """
+        self._seen_types.setdefault(app_id, set()).update(data_types)
 
     def _continuous_features(self, request: AccessRequest, update: bool = True) -> list[float]:
         """Features continuas para el iForest: intervalo desde el último acceso y hora."""
@@ -65,6 +75,7 @@ class AnomalyDetector:
         for r in history:
             X.append(self._continuous_features(r))
             self._seen_types.setdefault(r.app_id, set()).add(r.data_type)
+        self._typical_interval = statistics.median(x[0] for x in X)
         self._model.fit(X)
         self._trained = True
 
@@ -73,10 +84,15 @@ class AnomalyDetector:
         if not self._trained:
             raise RuntimeError("El detector no está entrenado: llama a fit() primero")
         feats = self._continuous_features(request)
-        # Regla de novedad: tipo que esta app nunca pidió en entrenamiento.
+        # Regla de novedad: tipo que esta app nunca pidió (ni fue sembrado en warm_up).
         if request.data_type not in self._seen_types.get(request.app_id, set()):
             return AnomalyResult(True, -1.0,
                                  f"tipo nunca pedido por esta app: {request.data_type.value}")
+        # Detector de un solo lado: en este dominio solo las ráfagas (intervalos
+        # anormalmente CORTOS) son ataque. Un intervalo largo se recorta a la
+        # mediana del baseline (centro de la masa normal) y deja de poder ser
+        # anómalo por sí mismo.
+        feats[0] = min(feats[0], self._typical_interval)
         is_anom = self._model.predict([feats])[0] == -1
         raw = float(self._model.decision_function([feats])[0])
         reason = (f"patrón anómalo (intervalo={feats[0]:.2f}s)" if is_anom
