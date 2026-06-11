@@ -1,0 +1,18 @@
+# Configuración del blog de NeuroGate (Jekyll, servido por GitHub Pages)
+title: NeuroGate
+description: >-
+  Bitácora técnica de NeuroGate: un "antivirus neuronal", la capa de seguridad
+  entre una señal cerebral y las apps que quieren consumirla. Aquí documento
+  el proceso, capa a capa.
+lang: es
+url: "https://earnlydriver-code.github.io"
+baseurl: "/neurogate"
+repo_url: "https://github.com/earnlydriver-code/neurogate"
+
+markdown: kramdown
+permalink: /:year/:month/:title/
+plugins:
+  - jekyll-feed
+
+# Los layouts propios viven en _layouts/; sin tema externo, cero dependencias.
+theme: null
