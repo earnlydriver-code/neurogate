@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v1 — Paso 1 de 11 (cimientos). Completado, pendiente de aprobación para el Paso 2.**
+**Versión actual: v1 — Paso 2 de 11 (signal_source) completado.**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 
