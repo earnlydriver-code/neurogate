@@ -1,0 +1,24 @@
+Paso 10 — dashboard (Streamlit)
+==================================================
+Comando: streamlit run neurogate/dashboard.py
+
+Verificacion automatica (sin navegador), 2026-06-10:
+  - El modulo neurogate.dashboard importa sin errores.
+  - Arranque headless en puerto 8520:
+      GET /                 -> HTTP 200 (la app sirve)
+      GET /_stcore/health   -> "ok"
+
+Vistas del panel:
+  - Señal cerebral en vivo (line chart del bloque actual).
+  - Intencion decodificada ahora.
+  - Contadores: peticiones / permitidas / bloqueadas / integridad del log.
+  - Semaforo de apps (verde=ok / amarillo=cuarentena) con sus permisos.
+  - Boton "Simular ataque" -> narra robo de señal cruda, rafaga frenada por
+    anomalia y estado del log de auditoria.
+
+Controles de la barra lateral:
+  - Selector de la intencion que "piensa" el cerebro (idle/move_cursor/type_text).
+  - Avanzar señal y decodificar.
+  - Enviar trafico legitimo (cursor_app + messaging_app).
+  - Simular ataque.
+  - Reiniciar demo.

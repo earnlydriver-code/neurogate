@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v1 — Paso 9 de 11 (attack_sim) completado.**
+**Versión actual: v1 — Paso 10 de 11 (dashboard) completado. STOP: Paso 11 (despliegue) y v2 requieren aprobación del "modo prueba".**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 
