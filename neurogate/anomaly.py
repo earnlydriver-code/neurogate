@@ -15,7 +15,7 @@ from sklearn.ensemble import IsolationForest
 from neurogate.consent import AccessRequest, DataType
 
 # Intervalo (s) que asumimos para la primera solicitud de una app sin historial.
-_DEFAULT_INTERVAL = 5.0
+_DEFAULT_INTERVAL = 1.0
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,14 @@ class AnomalyDetector:
         self._last_ts: dict[str, float] = {}          # último acceso por app -> intervalo
         self._seen_types: dict[str, set[DataType]] = {}  # tipos vistos por app
         self._trained = False
+
+    @property
+    def is_trained(self) -> bool:
+        return self._trained
+
+    def clear_timing(self) -> None:
+        """Olvida los timestamps del baseline (la primera petición real parte de cero)."""
+        self._last_ts.clear()
 
     def _continuous_features(self, request: AccessRequest, update: bool = True) -> list[float]:
         """Features continuas para el iForest: intervalo desde el último acceso y hora."""

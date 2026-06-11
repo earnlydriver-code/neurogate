@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v1 — Paso 7 de 11 (audit) completado.**
+**Versión actual: v1 — Paso 8 de 11 (gateway) completado.**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 

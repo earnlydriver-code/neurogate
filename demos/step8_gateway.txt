@@ -1,0 +1,14 @@
+Paso 8 — gateway (flujo completo)
+============================================================
+señal -> intención decodificada: move_cursor
+señal -> intención decodificada: move_cursor
+señal -> intención decodificada: move_cursor
+
+[PERMITIDO] app legítima pide intención                -> 100 bytes cifrados
+[PERMITIDO] app legítima pide texto                    -> 140 bytes cifrados
+[BLOQUEADO] maliciosa pide señal cruda (sin permiso)   -> app 'evil_app' sin permiso para raw_signal
+[BLOQUEADO] ráfaga de 15 peticiones de evil_app                 -> 15/15 frenadas por anomalía
+
+contadores: {'requests': 18, 'allowed': 2, 'blocked': 16}
+estado apps: {'cursor_app': 'ok', 'messaging_app': 'ok', 'evil_app': 'quarantine'}
+integridad del log de auditoría: INTEGRO
