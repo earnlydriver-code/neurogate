@@ -1,0 +1,7 @@
+Paso 4 — consent
+==================================================
+[PERMITIDO] messaging_app  pide confirmed_text -> autorizado
+[BLOQUEADO] messaging_app  pide raw_signal     -> app 'messaging_app' sin permiso para raw_signal
+[PERMITIDO] cursor_app     pide intent         -> autorizado
+[BLOQUEADO] cursor_app     pide raw_signal     -> app 'cursor_app' sin permiso para raw_signal
+[BLOQUEADO] unknown_app    pide intent         -> app 'unknown_app' no registrada
