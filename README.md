@@ -83,10 +83,14 @@ primer momento.
 
 ## Estado actual
 
-**v1 — Paso 1 de 11 (cimientos).** La estructura y los esqueletos existen; la
-lógica se construye una capa a la vez (ver roadmap en `SPEC.md`).
+**v1 COMPLETA — 11 de 11 pasos.** Los ocho módulos implementados, 34 tests en
+verde (incluidos los tres ataques de `tests/attack_sim.py`, todos bloqueados),
+demo pública en [neurogate.streamlit.app](https://neurogate.streamlit.app/) y
+bitácora del proceso en el [blog](https://earnlydriver-code.github.io/neurogate/).
+La **v2** (servicio real: BrainFlow, MNE, FastAPI + JWT; ver `SPEC-V2.md`) está
+especificada y pendiente de inicio.
 
-## Cómo se ejecutará (cuando esté listo)
+## Cómo ejecutarlo
 
 ```powershell
 # 1. Instalar dependencias
@@ -94,12 +98,14 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# 2. Correr la demo completa por terminal (a partir del Paso 8)
+# 2. Demo completa por terminal (flujo end-to-end)
 python -m neurogate.gateway
 
-# 3. Probar las defensas contra la app maliciosa (a partir del Paso 9)
+# 3. Probar las defensas contra la app maliciosa
 pytest
 
-# 4. Abrir el panel visual (a partir del Paso 10)
+# 4. Panel visual (o usa la demo pública)
 streamlit run neurogate/dashboard.py
 ```
+
+Cada módulo tiene además su demo propia: `python -m neurogate.<modulo>`.
