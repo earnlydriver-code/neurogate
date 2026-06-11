@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v1 — Paso 10 de 11 (dashboard) completado. STOP: Paso 11 (despliegue) y v2 requieren aprobación del "modo prueba".**
+**Versión actual: v1 — Paso 11 (despliegue) en curso: modo prueba aprobado, falta el deploy manual en Streamlit Cloud. La v2 sigue requiriendo aprobación aparte.**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 

@@ -1,0 +1,10 @@
+# Tema del dashboard (aplica también en Streamlit Cloud)
+[theme]
+base = "dark"
+primaryColor = "#2dd4bf"
+backgroundColor = "#0d1117"
+secondaryBackgroundColor = "#161b22"
+textColor = "#e6edf3"
+
+[browser]
+gatherUsageStats = false
