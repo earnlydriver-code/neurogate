@@ -63,9 +63,24 @@ tests/
 La visión completa, los contratos entre módulos y el roadmap están en
 [`SPEC.md`](SPEC.md).
 
+## Dos versiones
+
+El proyecto se construye en dos etapas secuenciales:
+
+- **v1 — educativa** ([`SPEC.md`](SPEC.md)): demuestra el concepto completo en
+  un solo proceso, con señal simulada. Roadmap de 11 pasos. Es la base.
+- **v2 — oficial/técnica** ([`SPEC-V2.md`](SPEC-V2.md)): convierte la v1 en un
+  servicio real (BrainFlow, MNE, FastAPI + JWT, TLS, log firmado), agnóstico
+  al fabricante del dispositivo y listo para hardware BCI real. Roadmap de 5
+  fases. **Solo arranca cuando la v1 está completa hasta el Paso 9 y aprobada.**
+
+La meta final: un middleware funcional, listo para activarse cuando salgan los
+BCI de consumo (Neuralink y similares) y proteger los datos neuronales desde el
+primer momento.
+
 ## Estado actual
 
-**Paso 1 de 11 — cimientos.** La estructura y los esqueletos existen; la
+**v1 — Paso 1 de 11 (cimientos).** La estructura y los esqueletos existen; la
 lógica se construye una capa a la vez (ver roadmap en `SPEC.md`).
 
 ## Cómo se ejecutará (cuando esté listo)

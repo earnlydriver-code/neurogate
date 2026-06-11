@@ -1,8 +1,14 @@
-# NeuroGate — Especificación del proyecto
+# NeuroGate — Especificación v1 (educativa)
 
-> **Fuente de verdad del proyecto.** Todos los pasos de implementación apuntan
-> a la visión descrita aquí. Si una decisión de código contradice este
-> documento, este documento gana (o se actualiza primero, con acuerdo del autor).
+> **Fuente de verdad de la v1.** Todos los pasos de la v1 apuntan a la visión
+> descrita aquí. Si una decisión de código contradice este documento, este
+> documento gana (o se actualiza primero, con acuerdo del autor).
+>
+> Esta es la **versión 1 (educativa)**: el concepto completo en un solo proceso
+> con señal simulada. Una vez completada hasta el Paso 9 y aprobada, el proyecto
+> salta a la **v2 (oficial/técnica)** descrita en [`SPEC-V2.md`](SPEC-V2.md):
+> servicio real con BrainFlow, MNE, FastAPI y hardware-ready. Los contratos
+> entre módulos definidos aquí se conservan en la v2.
 
 ---
 
