@@ -1,0 +1,10 @@
+Paso 3 — decoder
+========================================
+cerebro pensó idle         -> decoder dijo idle          OK
+cerebro pensó move_cursor  -> decoder dijo move_cursor   OK
+cerebro pensó type_text    -> decoder dijo type_text     OK
+cerebro pensó idle         -> decoder dijo idle          OK
+cerebro pensó type_text    -> decoder dijo type_text     OK
+cerebro pensó move_cursor  -> decoder dijo move_cursor   OK
+
+Accuracy en esta corrida: 100% (6/6)
