@@ -43,3 +43,20 @@ Decisiones tomadas sin consultar, por ser la opción más simple compatible con
     novedad. La regla sigue viva para tipos fuera de su permiso.
 
 ---
+
+## D3 — Diseño final del modo confirmación (revisión, hallazgo 7)
+- **Contexto:** la implementación inicial solo exigía confirmación para
+  `RAW_SIGNAL` y solo con `confirmation_mode=True`; el spec v1 §4 dice que en
+  modo confirmación "nada sale sin aprobación explícita del usuario".
+- **Decisión (alineada con el spec):**
+  - `SENSITIVE_TYPES` (hoy: `RAW_SIGNAL`) exige aprobación explícita
+    **siempre**, haya o no modo confirmación. La señal cruda del cerebro nunca
+    sale sola.
+  - Con `confirmation_mode=True`, **todo** tipo de dato exige aprobación;
+    los sensibles son el subconjunto que la exige incondicionalmente.
+  - La aprobación (`approve_once`) es de un solo uso.
+- **Justificación:** cumple la letra del spec y añade una garantía razonable
+  (sensibles siempre confirmados) sin romper la demo: las apps de la demo no
+  tienen permiso de `RAW_SIGNAL` y el gateway corre con el modo apagado.
+
+---

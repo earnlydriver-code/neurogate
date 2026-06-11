@@ -1,8 +1,9 @@
 """Filtro de consentimiento: cada app solo recibe el tipo de dato autorizado.
 
 La pieza estrella. Mantiene el registro de apps y sus permisos por tipo de
-dato, y aprueba o rechaza cada solicitud. Incluye el "modo confirmación":
-los datos sensibles no salen sin aprobación explícita del usuario.
+dato, y aprueba o rechaza cada solicitud. Los tipos sensibles exigen siempre
+aprobación explícita del usuario; en "modo confirmación", la exige todo tipo
+(nada sale sin aprobación, spec v1 §4).
 """
 
 from __future__ import annotations
@@ -20,7 +21,8 @@ class DataType(Enum):
     CONFIRMED_TEXT = "confirmed_text"
 
 
-# Tipos que en modo confirmación exigen aprobación explícita del usuario.
+# Tipos que SIEMPRE exigen aprobación explícita del usuario, haya o no
+# modo confirmación. En modo confirmación, TODO tipo la exige (spec v1 §4).
 SENSITIVE_TYPES = frozenset({DataType.RAW_SIGNAL})
 
 
@@ -45,7 +47,8 @@ class ConsentFilter:
     """Registro de apps y permisos; decide cada solicitud."""
 
     def __init__(self, confirmation_mode: bool = False) -> None:
-        # confirmation_mode: si True, los tipos sensibles requieren aprobación previa.
+        # confirmation_mode: si True, NADA sale sin aprobación explícita del
+        # usuario (todo tipo). Los SENSITIVE_TYPES la exigen siempre.
         self.confirmation_mode = confirmation_mode
         self._permissions: dict[str, set[DataType]] = {}
         self._approvals: set[tuple[str, DataType]] = set()  # aprobaciones de un uso
@@ -66,6 +69,11 @@ class ConsentFilter:
         """El usuario autoriza una entrega puntual de un tipo sensible."""
         self._approvals.add((app_id, data_type))
 
+    def requires_confirmation(self, data_type: DataType) -> bool:
+        """¿Este tipo necesita aprobación explícita? Sensibles: siempre.
+        En modo confirmación: todos (nada sale sin aprobación, spec v1 §4)."""
+        return self.confirmation_mode or data_type in SENSITIVE_TYPES
+
     def check(self, request: AccessRequest) -> Decision:
         """Decide si la solicitud está autorizada."""
         app_id, dtype = request.app_id, request.data_type
@@ -73,7 +81,7 @@ class ConsentFilter:
             return Decision(False, f"app '{app_id}' no registrada")
         if dtype not in self._permissions[app_id]:
             return Decision(False, f"app '{app_id}' sin permiso para {dtype.value}")
-        if self.confirmation_mode and dtype in SENSITIVE_TYPES:
+        if self.requires_confirmation(dtype):
             key = (app_id, dtype)
             if key not in self._approvals:
                 return Decision(False, f"requiere confirmación del usuario para {dtype.value}")
