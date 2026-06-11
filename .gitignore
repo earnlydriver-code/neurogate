@@ -32,3 +32,6 @@ Thumbs.db
 *.log
 audit_log.jsonl
 *.key
+
+# Estrategia de negocio: solo local, nunca al repo publico
+ESTRATEGIA.md
