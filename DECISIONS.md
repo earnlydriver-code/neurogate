@@ -14,3 +14,20 @@ Decisiones tomadas sin consultar, por ser la opción más simple compatible con
   sería fricción innecesaria. La v2 podrá fijar 3.11+ si hace falta.
 
 ---
+
+## D2 — Detector de anomalías híbrido (iForest + regla de novedad)
+- **Contexto:** el spec pide Isolation Forest detectando, entre otras cosas,
+  "leer algo que nunca antes pidió". Un Isolation Forest no puede aislar un
+  feature que fue constante en entrenamiento (la columna de un tipo nunca visto
+  es siempre 0 → no hay split posible), así que por sí solo no detecta tipos
+  nuevos.
+- **Decisión:** híbrido. El Isolation Forest vigila las features continuas
+  (intervalo entre accesos y franja horaria); una regla de novedad por conjunto
+  marca como anómalo cualquier tipo de dato que esa app nunca pidió en
+  entrenamiento.
+- **Justificación:** cumple el comportamiento que pide el spec (ráfagas y tipos
+  nunca pedidos disparan alerta) de forma robusta y honesta. El Isolation Forest
+  sigue siendo el núcleo, como pide el spec. No afecta contratos ni la v2 (la
+  v2 enriquece las features de telemetría, pero la idea híbrida se conserva).
+
+---

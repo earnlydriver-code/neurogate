@@ -1,0 +1,5 @@
+Paso 5 — anomaly
+=======================================================
+[OK] acceso normal      -> comportamiento normal
+[ALERTA] rafaga de 10 accesos -> 10/10 marcados anomalos
+[ALERTA] tipo nunca pedido   -> tipo nunca pedido por esta app: raw_signal

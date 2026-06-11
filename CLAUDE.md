@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v1 — Paso 4 de 11 (consent) completado.**
+**Versión actual: v1 — Paso 5 de 11 (anomaly) completado.**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 
