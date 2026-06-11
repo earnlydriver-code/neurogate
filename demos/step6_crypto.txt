@@ -1,0 +1,6 @@
+Paso 6 — crypto_layer
+=======================================================
+dato original          : intencion: move_cursor
+cifrado (ilegible)     : gAAAAABqKgAvimc0kxm3PRs9d7ylpOMg785VyLINe2L-fLEz...
+app_A descifra         : intencion: move_cursor
+app_B intenta descifrar: BLOQUEADO (clave incorrecta, InvalidToken)
