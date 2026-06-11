@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,18 @@ from neurogate.signal_source import SignalSource
 
 # Texto de ejemplo que el usuario habría confirmado (placeholder de v1).
 _CONFIRMED_TEXT = b"<texto confirmado por el usuario>"
+
+
+@lru_cache(maxsize=4)
+def _trained_decoder(seed: int) -> Decoder:
+    """Decoder entrenado y cacheado: mismo seed -> mismo modelo, sin reentrenar.
+
+    Tras train() el decoder solo predice (no muta), así que compartirlo entre
+    gateways es seguro y ahorra ~2 s por construcción (tests, reinicios de demo).
+    """
+    decoder = Decoder()
+    decoder.train(seed=seed)
+    return decoder
 
 
 @dataclass(frozen=True)
@@ -38,8 +51,7 @@ class Gateway:
 
     def __init__(self, audit_path: Path | str = "audit_log.jsonl", seed: int = 0) -> None:
         self.signal = SignalSource(seed=seed)
-        self.decoder = Decoder()
-        self.decoder.train(seed=seed)
+        self.decoder = _trained_decoder(seed)
         self.consent = ConsentFilter()
         self.anomaly = AnomalyDetector(seed=seed)
         self.crypto = CryptoLayer()
@@ -107,8 +119,8 @@ class Gateway:
         if self.app_status.get(request.app_id) == "quarantine":
             return self._block(request, "app en cuarentena")
 
-        # 1. Consentimiento.
-        decision = self.consent.check(request)
+        # 1. Consentimiento (sin consumir la aprobación todavía).
+        decision = self.consent.check(request, consume=False)
         if not decision.allowed:
             return self._block(request, decision.reason)
 
@@ -119,7 +131,10 @@ class Gateway:
                 self.app_status[request.app_id] = "quarantine"
                 return self._block(request, f"anomalía: {result.reason}")
 
-        # 3. Cifrado + 4. Auditoría (permitido).
+        # 3. Cifrado + 4. Auditoría (permitido). Recién aquí se gasta la
+        # aprobación de un uso: el dato sí va a salir.
+        if self.consent.requires_confirmation(request.data_type):
+            self.consent.consume_approval(request.app_id, request.data_type)
         payload = self.crypto.encrypt_for(request.app_id, self._payload_for(request.data_type))
         self.counters["allowed"] += 1
         self.audit.append(AuditEvent(request.app_id, request.data_type.value,

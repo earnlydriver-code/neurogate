@@ -74,8 +74,16 @@ class ConsentFilter:
         En modo confirmación: todos (nada sale sin aprobación, spec v1 §4)."""
         return self.confirmation_mode or data_type in SENSITIVE_TYPES
 
-    def check(self, request: AccessRequest) -> Decision:
-        """Decide si la solicitud está autorizada."""
+    def consume_approval(self, app_id: str, data_type: DataType) -> None:
+        """Gasta la aprobación de un uso (llamar solo cuando el dato sí se entrega)."""
+        self._approvals.discard((app_id, data_type))
+
+    def check(self, request: AccessRequest, consume: bool = True) -> Decision:
+        """Decide si la solicitud está autorizada.
+
+        Con consume=False solo verifica; el gateway consume la aprobación al
+        final del pipeline, para no gastarla si otra defensa bloquea después.
+        """
         app_id, dtype = request.app_id, request.data_type
         if app_id not in self._permissions:
             return Decision(False, f"app '{app_id}' no registrada")
@@ -85,7 +93,8 @@ class ConsentFilter:
             key = (app_id, dtype)
             if key not in self._approvals:
                 return Decision(False, f"requiere confirmación del usuario para {dtype.value}")
-            self._approvals.discard(key)  # la aprobación se consume en un solo uso
+            if consume:
+                self._approvals.discard(key)  # la aprobación es de un solo uso
         return Decision(True, "autorizado")
 
 

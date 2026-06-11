@@ -16,13 +16,11 @@ class CryptoLayer:
     """Cifra lo que sale del gateway; cada app tiene su propia clave."""
 
     def __init__(self) -> None:
-        self._keys: dict[str, bytes] = {}        # app_id -> clave (para el lado app)
         self._ciphers: dict[str, Fernet] = {}    # app_id -> cifrador
 
     def register_app(self, app_id: str) -> bytes:
-        """Genera y devuelve la clave de una app."""
+        """Genera y devuelve la clave de una app (el gateway no la retiene)."""
         key = Fernet.generate_key()
-        self._keys[app_id] = key
         self._ciphers[app_id] = Fernet(key)
         return key
 

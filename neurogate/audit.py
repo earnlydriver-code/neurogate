@@ -40,6 +40,7 @@ class AuditLog:
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
         self._last_hash = self._recover_last_hash()
+        self._verify_cache: tuple[tuple[int, int], bool] | None = None  # (huella, resultado)
 
     def _recover_last_hash(self) -> str:
         """Recupera el hash de la última entrada para continuar la cadena."""
@@ -61,20 +62,30 @@ class AuditLog:
         self._last_hash = h
 
     def verify_chain(self) -> bool:
-        """True si la cadena está íntegra; False si alguien alteró el log."""
+        """True si la cadena está íntegra; False si alguien alteró el log.
+
+        El resultado se cachea por huella del archivo (tamaño + mtime): solo
+        se relee y re-hashea cuando el log cambió desde la última verificación.
+        """
         if not self.path.exists():
             return True
+        stat = self.path.stat()
+        fingerprint = (stat.st_size, stat.st_mtime_ns)
+        if self._verify_cache is not None and self._verify_cache[0] == fingerprint:
+            return self._verify_cache[1]
+
         prev = _GENESIS
+        ok = True
         for line in self.path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             rec = json.loads(line)
-            if rec["prev_hash"] != prev:
-                return False
-            if _entry_hash(prev, rec["event"]) != rec["hash"]:
-                return False
+            if rec["prev_hash"] != prev or _entry_hash(prev, rec["event"]) != rec["hash"]:
+                ok = False
+                break
             prev = rec["hash"]
-        return True
+        self._verify_cache = (fingerprint, ok)
+        return ok
 
 
 def _demo() -> None:
