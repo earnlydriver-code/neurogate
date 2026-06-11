@@ -1,0 +1,5 @@
+Paso 7 — audit
+=======================================================
+3 eventos escritos en step7_audit_sample.jsonl
+verificacion tras escribir: INTEGRO
+tras alterar 1 linea a mano: ALTERADO (detectado)
