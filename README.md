@@ -3,6 +3,7 @@
 **Un "antivirus neuronal": la capa de seguridad entre un cerebro y las apps
 que quieren leerlo.**
 
+🔴 **Demo en vivo:** [neurogate.streamlit.app](https://neurogate.streamlit.app/) — pulsa "Simular ataque"
 📝 **Bitácora del proceso:** [earnlydriver-code.github.io/neurogate](https://earnlydriver-code.github.io/neurogate/)
 
 NeuroGate es un prototipo educativo en Python que demuestra cómo proteger

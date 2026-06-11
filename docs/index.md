@@ -12,6 +12,10 @@ estará lista desde el primer día.
 
 Aquí documento el proceso, capa a capa, para quien le llegue o le interese.
 
+> 🔴 **[Demo en vivo](https://neurogate.streamlit.app/)** — pulsa "Simular
+> ataque" y mira el bloqueo en tiempo real ·
+> [Código en GitHub](https://github.com/earnlydriver-code/neurogate)
+
 ## Entradas
 
 <ul class="post-list">

@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v1 — Paso 11 (despliegue) en curso: modo prueba aprobado, falta el deploy manual en Streamlit Cloud. La v2 sigue requiriendo aprobación aparte.**
+**Versión actual: v1 COMPLETA (Pasos 1–11). Demo pública: https://neurogate.streamlit.app · Blog: https://earnlydriver-code.github.io/neurogate. STOP: la v2 (`SPEC-V2.md`) requiere aprobación explícita del autor.**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 
