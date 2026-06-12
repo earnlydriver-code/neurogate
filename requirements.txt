@@ -8,3 +8,11 @@ pytest
 brainflow
 mne
 joblib
+fastapi
+uvicorn[standard]
+websockets
+httpx
+pyjwt
+passlib
+pydantic-settings
+pytest-asyncio

@@ -33,6 +33,9 @@ Thumbs.db
 audit_log.jsonl
 *.key
 
+# Secretos del servicio (Fase C): nunca al repo. Se versiona .env.example.
+.env
+
 # Modelos entrenados (Fase B): pesados y regenerables con train_decoder.py
 models/
 *.joblib

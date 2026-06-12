@@ -1,0 +1,25 @@
+Fase C — gateway como servicio (flujo extremo a extremo por red)
+================================================================
+Servicio NeuroGate arriba en http://127.0.0.1:8077 (HTTP de desarrollo)
+
+--- app 1: cursor_app (scope read:intent, WebSocket) ---
+[cursor_app] token obtenido, scopes=['read:intent']
+[cursor_app] intención recibida: move_cursor (payload cifrado, 136 chars b64)
+[cursor_app] intención recibida: move_cursor (payload cifrado, 136 chars b64)
+[cursor_app] intención recibida: move_cursor (payload cifrado, 136 chars b64)
+[cursor_app] intención recibida: move_cursor (payload cifrado, 136 chars b64)
+[cursor_app] intención recibida: move_cursor (payload cifrado, 136 chars b64)
+
+--- app 2: messaging_app (scope read:confirmed_text, REST) ---
+[messaging_app] token obtenido, scopes=['read:confirmed_text']
+[messaging_app] entrega 1: confirmed_text (cifrado, 188 chars b64)
+[messaging_app] entrega 2: confirmed_text (cifrado, 188 chars b64)
+[messaging_app] entrega 3: confirmed_text (cifrado, 188 chars b64)
+[messaging_app] total entregas recibidas: 3/3
+
+--- estado del servicio (/admin/state) ---
+clientes registrados : ['cursor_app', 'messaging_app', 'admin_app']
+intención más reciente: idle
+contadores           : {'requests': 9, 'allowed': 9, 'blocked': 0}
+estado apps          : {'cursor_app': 'ok', 'messaging_app': 'ok', 'admin_app': 'ok'}
+integridad del log   : INTEGRO
