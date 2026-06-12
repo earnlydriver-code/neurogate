@@ -32,6 +32,27 @@ class Settings(BaseSettings):
     # Semilla determinista para señal + decoder del bucle de fondo.
     seed: int = 0
 
+    # --- Fase D (hardening) ---
+    # Master key del cifrado por app (HKDF). NUNCA en código; en producción, KMS.
+    master_key: str = "dev-insecure-master-key-change-me"
+    # Ventana anti-replay (s): timestamps fuera de ella se rechazan.
+    replay_window_seconds: float = 30.0
+    # Cada cuántos requests del servicio rotar las claves de cifrado (0 = no rotar).
+    key_rotation_every: int = 0
+    # Versiones de clave anteriores que se siguen aceptando durante la rotación.
+    retained_key_versions: int = 1
+    # Ruta de la clave privada Ed25519 del log firmado (PEM). Va por archivo ignorado.
+    audit_private_key_path: str = "keys/audit_ed25519_private.pem"
+    # Ruta de la clave pública Ed25519 (se puede versionar/regenerar).
+    audit_public_key_path: str = "keys/audit_ed25519_public.pem"
+    # Requests por app a aprender antes de pasar a vigilancia (telemetría).
+    anomaly_baseline_requests: int = 30
+    # Factor de pico de tasa que dispara cuarentena (×N sobre la tasa típica).
+    anomaly_rate_spike_factor: float = 10.0
+    # Rutas del certificado/clave TLS para servir HTTPS/WSS (uvicorn los usa).
+    tls_certfile: str = "certs/dev_cert.pem"
+    tls_keyfile: str = "certs/dev_key.pem"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

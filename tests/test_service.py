@@ -18,7 +18,10 @@ _SECRET = "test-secret-please-change-32-bytes-minimum-xx"
 @pytest.fixture()
 def app(tmp_path):
     """App de prueba: secreto por fixture, sin bucle de fondo, con clientes dados de alta."""
-    settings = Settings(jwt_secret=_SECRET, seed=0)
+    settings = Settings(
+        jwt_secret=_SECRET, seed=0, master_key="test-master-key-fase-d",
+        audit_private_key_path=str(tmp_path / "audit_priv.pem"),
+        audit_public_key_path=str(tmp_path / "audit_pub.pem"))
     app = create_app(settings=settings, audit_path=tmp_path / "audit.jsonl",
                      background_loop=False, prime_anomaly=True)
     state = app.state.service

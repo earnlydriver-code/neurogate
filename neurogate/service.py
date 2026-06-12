@@ -1,14 +1,19 @@
-"""Gateway como servicio (Fase C): el orquestador v1 expuesto por FastAPI.
+"""Gateway como servicio (Fase C + hardening Fase D): orquestador v1 sobre FastAPI.
 
 Migra el orquestador en-proceso de la v1 a un servicio FastAPI con autenticación
 JWT por scopes y revocación en caliente. El bucle señal→decoder corre como tarea
-de fondo (lifespan) y mantiene en memoria la última intención decodificada para
-servir los streams.
+de fondo (lifespan) y mantiene en memoria la última intención decodificada.
 
-Reutiliza los bloques de la v1 SIN reescribirlos: ``AuditLog``, ``CryptoLayer``,
-``AnomalyDetector``, ``ConsentFilter``/``DataType``, ``SignalSource`` y ``Decoder``.
-Todo el flujo de defensas (consent → anomaly → crypto → audit) es el mismo de la
-v1, ahora detrás de la red.
+**Fase D (hardening)** sustituye, en el SERVICIO, los bloques de demo de la v1 por
+sus versiones serias (la v1 sigue intacta para su propio gateway/tests):
+
+- cifrado por app con ``CryptoLayerV2`` (HKDF + AESGCM + rotación versionada +
+  anti-replay),
+- log firmado ``SignedAuditLog`` (cadena SHA-256 + firma Ed25519),
+- anomalías sobre telemetría real con ``TelemetryAnomalyDetector``.
+
+Todo el flujo de defensas (scope → consent → anomalía → crypto → audit) se conserva;
+cambian las implementaciones detrás de cada contrato.
 """
 
 from __future__ import annotations
@@ -16,21 +21,22 @@ from __future__ import annotations
 import asyncio
 import base64
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from neurogate.anomaly import AnomalyDetector
-from neurogate.audit import AuditEvent, AuditLog
 from neurogate.auth import AuthError, AuthManager, TokenClaims, scopes_to_datatypes
 from neurogate.config import Settings, get_settings
 from neurogate.consent import AccessRequest, ConsentFilter, DataType
-from neurogate.crypto_layer import CryptoLayer
+from neurogate.crypto_v2 import CryptoLayerV2, DecryptError, ReplayError
 from neurogate.decoder import Decoder, Intent
 from neurogate.gateway import _trained_decoder  # decoder v1 entrenado y cacheado
 from neurogate.signal_source import SignalSource
+from neurogate.signed_audit import (SignedAuditEvent, SignedAuditLog,
+                                     load_private_key)
+from neurogate.telemetry_anomaly import TelemetryAnomalyDetector, TelemetryRecord
 
 # Texto de ejemplo que el usuario habría confirmado (placeholder, heredado de v1).
 _CONFIRMED_TEXT = b"<texto confirmado por el usuario>"
@@ -39,21 +45,43 @@ _CONFIRMED_TEXT = b"<texto confirmado por el usuario>"
 _TICK_SECONDS = 0.2
 
 
+def _ensure_audit_key(settings: Settings) -> object:
+    """Carga la clave privada Ed25519 del log; la genera si no existe (dev).
+
+    En producción la clave privada se provee por archivo ignorado / KMS. Para
+    desarrollo y tests, si no hay archivo se genera un par y se guarda la pública.
+    """
+    from neurogate.signed_audit import (generate_keypair, private_key_to_pem,
+                                         public_key_to_pem)
+
+    priv_path = Path(settings.audit_private_key_path)
+    if priv_path.exists():
+        return load_private_key(priv_path.read_bytes())
+    # No hay clave: generamos un par de desarrollo y persistimos ambas.
+    private, public = generate_keypair()
+    priv_path.parent.mkdir(parents=True, exist_ok=True)
+    priv_path.write_bytes(private_key_to_pem(private))
+    Path(settings.audit_public_key_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(settings.audit_public_key_path).write_bytes(public_key_to_pem(public))
+    return private
+
+
 @dataclass
 class ServiceState:
-    """Estado vivo del servicio: defensas v1 + bucle de señal + auth."""
+    """Estado vivo del servicio: defensas (v2) + bucle de señal + auth."""
 
     auth: AuthManager
     consent: ConsentFilter
-    anomaly: AnomalyDetector
-    crypto: CryptoLayer
-    audit: AuditLog
+    anomaly: TelemetryAnomalyDetector
+    crypto: CryptoLayerV2
+    audit: SignedAuditLog
     signal: SignalSource
     decoder: Decoder
     settings: Settings
     latest_intent: Intent = Intent.IDLE
     counters: dict = None  # type: ignore[assignment]
     app_status: dict = None  # type: ignore[assignment]
+    _requests_since_rotation: int = field(default=0, init=False)
 
     def __post_init__(self) -> None:
         if self.counters is None:
@@ -79,23 +107,32 @@ class ServiceState:
         dtypes = scopes_to_datatypes(granted_scopes)
         self.consent.register_app(client_id, dtypes)
         self.crypto.register_app(client_id)
-        self.anomaly.warm_up(client_id, dtypes)
+        # La telemetría siembra los scopes que la app puede pedir legítimamente.
+        self.anomaly.warm_up(client_id, set(granted_scopes))
         self.app_status.setdefault(client_id, "ok")
 
-    def prime_anomaly(self, n_per_app: int = 200, seed: int = 0) -> None:
-        """Baseline de accesos normales por app (mismo método que el Gateway v1)."""
+    def prime_anomaly(self, n_per_app: int = 40, seed: int = 0) -> None:
+        """Aprende un baseline de telemetría normal por app y cierra la fase.
+
+        Genera N requests por app a ritmo normal (~1/s) con sus scopes legítimos,
+        y luego entrena el Isolation Forest (modo vigilancia activo).
+        """
         import numpy as np
 
+        if not self.consent.registered_apps:
+            return  # sin clientes no hay baseline que aprender (igual que la v1)
         rng = np.random.default_rng(seed)
-        t, history = 1_000_000.0, []
-        for _ in range(n_per_app):
-            for app_id in self.consent.registered_apps:
-                t += max(0.3, rng.normal(1.0, 0.3))
-                for dtype in self.consent.permissions_of(app_id):
-                    history.append(AccessRequest(app_id, dtype, t))
-        if history:
-            self.anomaly.fit(history)
-            self.anomaly.clear_timing()
+        t = 1_000_000.0
+        baseline = max(n_per_app, self.settings.anomaly_baseline_requests)
+        for _ in range(baseline):
+            for client_id in self.consent.registered_apps:
+                t += max(0.5, rng.normal(1.0, 0.2))
+                for scope in self.auth.client_scopes(client_id):
+                    self.anomaly.observe(
+                        TelemetryRecord(client_id, scope, t, payload_size=16),
+                        learning=True)
+        self.anomaly.finalize_baseline()
+        self.anomaly.clear_timing()  # el baseline simulado no debe arrastrar timing a lo real
 
     def release_quarantine(self, app_id: str) -> None:
         """Saca una app de cuarentena (acción explícita)."""
@@ -113,13 +150,13 @@ class ServiceState:
             return self.signal.get_chunk().astype("float32").tobytes()
         return b""
 
-    # --- el pipeline de defensas v1, por red ---
+    # --- el pipeline de defensas, por red ---
 
     def serve(self, claims: TokenClaims, scope: str) -> bytes:
-        """Pipeline completo para una entrega: scope→consent→anomaly→crypto→audit.
+        """Pipeline completo para una entrega: scope→consent→anomalía→crypto→audit.
 
-        Devuelve el payload cifrado o lanza AuthError. TODA rama (allow/deny/
-        quarantine) pasa por audit.append(), sin excepciones.
+        Devuelve el sobre cifrado (CryptoLayerV2) o lanza AuthError. TODA rama
+        (allow/deny/quarantine) pasa por el log firmado, sin excepciones.
         """
         client_id = claims.client_id
         dtype = self._datatype_for_scope(claims, scope)  # 403 si el scope no aplica
@@ -128,30 +165,43 @@ class ServiceState:
 
         # 0. Cuarentena: una app en cuarentena no recibe nada (y se audita).
         if self.app_status.get(client_id) == "quarantine":
-            self._block(request, "app en cuarentena")
+            self._block(client_id, scope, "quarantine", "app en cuarentena")
             raise AuthError(403, "app en cuarentena")
 
         # 1. Consentimiento (sin consumir la aprobación todavía).
         decision = self.consent.check(request, consume=False)
         if not decision.allowed:
-            self._block(request, decision.reason)
+            self._block(client_id, scope, "deny", decision.reason)
             raise AuthError(403, decision.reason)
 
-        # 2. Anomalías (si hay baseline entrenado).
+        # 2. Anomalías sobre telemetría real (si hay baseline entrenado).
         if self.anomaly.is_trained:
-            result = self.anomaly.score(request)
+            result = self.anomaly.observe(
+                TelemetryRecord(client_id, scope, request.timestamp,
+                                payload_size=len(self._payload_for(dtype))))
             if result.is_anomalous:
                 self.app_status[client_id] = "quarantine"
-                self._block(request, f"anomalía: {result.reason}")
+                self._block(client_id, scope, "quarantine", f"anomalía: {result.reason}")
                 raise AuthError(403, f"anomalía: {result.reason}")
 
         # 3. Cifrado + 4. Auditoría (permitido). Recién aquí se gasta la aprobación.
         if self.consent.requires_confirmation(dtype):
             self.consent.consume_approval(client_id, dtype)
         payload = self.crypto.encrypt_for(client_id, self._payload_for(dtype))
+        self._maybe_rotate()
         self.counters["allowed"] += 1
-        self.audit.append(AuditEvent(client_id, dtype.value, True, "autorizado"))
+        self.audit.append(SignedAuditEvent(client_id, scope, "allow", "autorizado"))
         return payload
+
+    def _maybe_rotate(self) -> None:
+        """Rota las claves de cifrado cada N requests servidos (si está configurado)."""
+        every = self.settings.key_rotation_every
+        if every <= 0:
+            return
+        self._requests_since_rotation += 1
+        if self._requests_since_rotation >= every:
+            self.crypto.rotate()
+            self._requests_since_rotation = 0
 
     def _datatype_for_scope(self, claims: TokenClaims, scope: str) -> DataType:
         """Comprueba que el token tiene el scope y lo mapea a su DataType.
@@ -163,7 +213,7 @@ class ServiceState:
         if scope not in claims.scopes:
             # Escalada de scopes: se audita aunque el dato nunca llegue al pipeline.
             self.counters["requests"] += 1
-            self._block(AccessRequest(claims.client_id, DataType.INTENT),
+            self._block(claims.client_id, scope, "deny",
                         f"scope insuficiente: falta {scope}")
             raise AuthError(403, f"scope insuficiente: falta {scope}")
         dtype = SCOPE_TO_DATATYPE.get(scope)
@@ -171,11 +221,27 @@ class ServiceState:
             raise AuthError(403, f"el scope {scope} no entrega datos neuronales")
         return dtype
 
-    def _block(self, request: AccessRequest, reason: str) -> None:
-        """Registra el bloqueo en auditoría (sin entregar nada)."""
+    def _block(self, client_id: str, scope: str, decision: str, reason: str) -> None:
+        """Registra el bloqueo en el log firmado (sin entregar nada)."""
         self.counters["blocked"] += 1
-        self.audit.append(AuditEvent(request.app_id, request.data_type.value,
-                                     False, reason, request.timestamp))
+        self.audit.append(SignedAuditEvent(client_id, scope, decision, reason))
+
+    def decrypt_envelope(self, claims: TokenClaims, raw: bytes) -> bytes:
+        """Descifra un sobre que la app reenvía; aplica anti-replay.
+
+        Sirve para demostrar el anti-replay extremo a extremo: reenviar un sobre
+        ya consumido (replay) se rechaza con ReplayError. Toda decisión se audita.
+        """
+        client_id = claims.client_id
+        try:
+            plaintext = self.crypto.decrypt(client_id, raw)
+        except ReplayError as e:
+            self._block(client_id, "decrypt", "deny", f"replay: {e}")
+            raise AuthError(403, f"replay rechazado: {e}")
+        except (DecryptError, KeyError) as e:
+            self._block(client_id, "decrypt", "deny", f"descifrado inválido: {e}")
+            raise AuthError(400, f"sobre inválido: {e}")
+        return plaintext
 
     def live_state(self) -> dict:
         """Snapshot del estado en vivo para el dashboard / admin."""
@@ -184,6 +250,7 @@ class ServiceState:
             "counters": dict(self.counters),
             "app_status": dict(self.app_status),
             "clients": self.auth.clients,
+            "key_version": self.crypto.version,
             "audit_ok": self.audit.verify_chain(),
         }
 
@@ -212,21 +279,38 @@ class RevokeRequest(BaseModel):
     jti: str
 
 
-def build_state(settings: Settings, audit_path: Path | str) -> ServiceState:
-    """Construye el estado del servicio reutilizando los bloques v1.
+class ReleaseRequest(BaseModel):
+    """Cuerpo de POST /admin/release: saca una app de cuarentena."""
 
-    Para la Fase C usa la combinación más simple y robusta: SignalSource v1 +
-    Decoder v1 (deterministas). Cambiar a BrainFlow + decoder MI sería un cambio
-    de configuración futuro (Fase D+); aquí NO se cablea.
+    client_id: str
+
+
+class DecryptRequest(BaseModel):
+    """Cuerpo de POST /data/echo: un sobre cifrado (base64) que la app reenvía."""
+
+    payload_b64: str
+
+
+def build_state(settings: Settings, audit_path: Path | str) -> ServiceState:
+    """Construye el estado del servicio con los bloques de la Fase D.
+
+    Señal v1 + Decoder v1 (deterministas) para el bucle; cifrado, log y anomalías
+    en sus versiones serias (crypto_v2, signed_audit, telemetry_anomaly).
     """
     seed = settings.seed
+    private_key = _ensure_audit_key(settings)
     state = ServiceState(
         auth=AuthManager(settings.jwt_secret, settings.jwt_algorithm,
                          settings.token_expire_minutes, settings.clinical_mode),
         consent=ConsentFilter(),
-        anomaly=AnomalyDetector(seed=seed),
-        crypto=CryptoLayer(),
-        audit=AuditLog(audit_path),
+        anomaly=TelemetryAnomalyDetector(
+            baseline_requests=settings.anomaly_baseline_requests,
+            rate_spike_factor=settings.anomaly_rate_spike_factor, seed=seed),
+        crypto=CryptoLayerV2(
+            master_key=settings.master_key.encode("utf-8"),
+            replay_window_seconds=settings.replay_window_seconds,
+            retained_versions=settings.retained_key_versions),
+        audit=SignedAuditLog(audit_path, private_key),
         signal=SignalSource(seed=seed),
         decoder=_trained_decoder(seed),
         settings=settings,
@@ -255,7 +339,7 @@ def create_app(settings: Settings | None = None,
             except asyncio.CancelledError:
                 pass
 
-    app = FastAPI(title="NeuroGate Gateway (Fase C)", lifespan=lifespan)
+    app = FastAPI(title="NeuroGate Gateway (Fase D)", lifespan=lifespan)
     state = build_state(settings, audit_path)
     if prime_anomaly:
         state.prime_anomaly(seed=settings.seed)
@@ -266,12 +350,7 @@ def create_app(settings: Settings | None = None,
 
 
 async def _signal_loop(state: ServiceState) -> None:
-    """Tarea de fondo: cicla la intención simulada y avanza señal→decoder.
-
-    Cambiar la intención cada pocos ticks hace que el stream muestre intenciones
-    variadas (idle/move_cursor/type_text), reproduciendo el flujo v1. En Fase D+
-    el set_intent simulado se sustituye por la fuente BrainFlow real.
-    """
+    """Tarea de fondo: cicla la intención simulada y avanza señal→decoder."""
     from neurogate.signal_source import INTENTS
 
     i, ticks = 0, 0
@@ -336,6 +415,21 @@ def _register_routes(app: FastAPI) -> None:
                 "payload_b64": base64.b64encode(payload).decode(),
                 "encrypted": True}
 
+    @app.post("/data/echo")
+    def echo_decrypt(body: DecryptRequest,
+                     claims: TokenClaims = Depends(claims_from_header)) -> dict:
+        """Recibe un sobre cifrado y lo descifra (demuestra anti-replay).
+
+        Reenviar el mismo sobre dos veces (replay) se rechaza en la segunda.
+        """
+        state = current_state()
+        try:
+            raw = base64.b64decode(body.payload_b64)
+            plaintext = state.decrypt_envelope(claims, raw)
+        except AuthError as e:
+            raise HTTPException(status_code=e.status_code, detail=e.detail)
+        return {"ok": True, "length": len(plaintext)}
+
     @app.get("/admin/state")
     def admin_state(claims: TokenClaims = Depends(require_scope("admin"))) -> dict:
         """Estado en vivo del servicio (apps, contadores, alertas). Requiere admin."""
@@ -348,13 +442,19 @@ def _register_routes(app: FastAPI) -> None:
         current_state().auth.revoke(body.jti)
         return {"revoked": body.jti}
 
+    @app.post("/admin/release")
+    def admin_release(body: ReleaseRequest,
+                      claims: TokenClaims = Depends(require_scope("admin"))) -> dict:
+        """Saca una app de cuarentena (acción manual del operador). Requiere admin."""
+        current_state().release_quarantine(body.client_id)
+        return {"released": body.client_id}
+
     @app.websocket("/stream/intents")
     async def stream_intents(websocket: WebSocket) -> None:
         """Stream de intenciones decodificadas (requiere read:intent).
 
-        El token se pasa como query param ``token`` (los navegadores no envían
-        headers en el handshake WS). Se reverifica en cada mensaje, de modo que
-        revocar el token corta el stream al instante.
+        El token se pasa como query param ``token``. Se reverifica en cada mensaje,
+        de modo que revocar el token corta el stream al instante.
         """
         state = current_state()
         token = websocket.query_params.get("token", "")

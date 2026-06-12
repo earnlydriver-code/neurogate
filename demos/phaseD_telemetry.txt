@@ -1,0 +1,6 @@
+Fase D — telemetry_anomaly (Isolation Forest sobre telemetría real)
+============================================================
+baseline aprendido (tasa típica ~60 rpm)
+[OK] request normal      -> comportamiento normal
+[ALERTA] flood ×20 tasa       -> 10/10 marcados anómalos
+[ALERTA] scope nunca usado    -> scope nunca usado por esta app: read:raw_signal

@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v2 — Fases A, B y C completas (señal real BrainFlow/dataset + decoder real motor imagery sobre BCI IV 2a, CV media 63.4% + gateway FastAPI con JWT/scopes/revocación y 2 apps cliente, 65 tests verdes). Venv en Python 3.12. Pendiente de aprobación del autor para la Fase D (hardening: TLS, firma Ed25519, rotación de claves, anomalía sobre telemetría real, suite de 8 ataques). v1 COMPLETA (Pasos 1–11). Demo pública: https://neurogate.streamlit.app · Blog: https://earnlydriver-code.github.io/neurogate. STOP: cada fase de la v2 requiere aprobación explícita del autor antes de pasar a la siguiente.**
+**Versión actual: v2 — Fases A, B, C y D completas (señal real BrainFlow/dataset + decoder real motor imagery sobre BCI IV 2a CV media 63.4% + gateway FastAPI con JWT/scopes/revocación + hardening: cifrado HKDF/AES-GCM por app con rotación y anti-replay, log firmado Ed25519 con verify_audit.py, anomalía sobre telemetría real, TLS de desarrollo, suite de 8 ataques bloqueados y auditados, 90 tests verdes). Venv en Python 3.12. Pendiente de aprobación del autor para la Fase E (dashboard contra el servicio real + despliegue). v1 COMPLETA (Pasos 1–11). Demo pública: https://neurogate.streamlit.app · Blog: https://earnlydriver-code.github.io/neurogate. STOP: cada fase de la v2 requiere aprobación explícita del autor antes de pasar a la siguiente.**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 

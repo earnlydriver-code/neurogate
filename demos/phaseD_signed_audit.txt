@@ -1,0 +1,5 @@
+Fase D — signed_audit (cadena SHA-256 + firma Ed25519)
+============================================================
+3 eventos firmados escritos en phaseD_signed_audit_sample.jsonl
+verificación tras escribir: ÍNTEGRO — íntegro
+tras alterar 1 carácter de la línea 2: ALTERADO (detectado en línea 2) — hash recomputado no coincide (contenido alterado)

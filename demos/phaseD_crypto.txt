@@ -1,0 +1,8 @@
+Fase D — crypto_v2 (HKDF + AESGCM + rotación + anti-replay)
+============================================================
+dato original          : intencion: move_cursor
+sobre cifrado (bytes)  : 0000000041da8b243b028e0c0c1a5940cb6f208f13ebfae7a4776c110fe272af... (62 bytes)
+app_A descifra         : intencion: move_cursor
+app_B intenta descifrar: BLOQUEADO (clave derivada distinta)
+tras rotar a v1          : sobre viejo (v0) sigue legible -> intencion: move_cursor
+replay del mismo sobre : BLOQUEADO (nonce ya visto)

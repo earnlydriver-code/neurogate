@@ -36,6 +36,17 @@ audit_log.jsonl
 # Secretos del servicio (Fase C): nunca al repo. Se versiona .env.example.
 .env
 
+# Hardening (Fase D): claves privadas y certs TLS nunca al repo.
+# La clave PÚBLICA Ed25519 sí puede versionarse (se excluye de la regla *.pem).
+*.pem
+!*_public.pem
+*_private*.key
+certs/
+keys/*_private*.pem
+# Logs de auditoría del servicio (firmados): regenerables, no al repo.
+audit_service.jsonl
+audit_service*.jsonl
+
 # Modelos entrenados (Fase B): pesados y regenerables con train_decoder.py
 models/
 *.joblib
@@ -43,6 +54,12 @@ models/
 
 # Estrategia de negocio: solo local, nunca al repo publico
 ESTRATEGIA.md
+
+# Analisis de mercado/competencia: solo local, nunca al repo publico
+ANALISIS-COMPETENCIA-BCI.md
+
+# Logs de auditoria de demos del servicio (runtime, regenerables)
+demos/*_service_audit.jsonl
 
 # Datasets EEG (cientos de MB): nunca al repo. Se descargan con
 # eeg_data/datasset de eeg/download_datasets.py o se apunta NEUROGATE_DATASET_PATH
