@@ -33,6 +33,11 @@ Thumbs.db
 audit_log.jsonl
 *.key
 
+# Modelos entrenados (Fase B): pesados y regenerables con train_decoder.py
+models/
+*.joblib
+*.pkl
+
 # Estrategia de negocio: solo local, nunca al repo publico
 ESTRATEGIA.md
 

@@ -7,3 +7,4 @@ streamlit
 pytest
 brainflow
 mne
+joblib

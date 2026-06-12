@@ -83,12 +83,45 @@ primer momento.
 
 ## Estado actual
 
-**v1 COMPLETA — 11 de 11 pasos.** Los ocho módulos implementados, 34 tests en
-verde (incluidos los tres ataques de `tests/attack_sim.py`, todos bloqueados),
-demo pública en [neurogate.streamlit.app](https://neurogate.streamlit.app/) y
-bitácora del proceso en el [blog](https://earnlydriver-code.github.io/neurogate/).
-La **v2** (servicio real: BrainFlow, MNE, FastAPI + JWT; ver `SPEC-V2.md`) está
-especificada y pendiente de inicio.
+**v1 COMPLETA — 11 de 11 pasos.** Los ocho módulos implementados, demo pública
+en [neurogate.streamlit.app](https://neurogate.streamlit.app/) y bitácora del
+proceso en el [blog](https://earnlydriver-code.github.io/neurogate/).
+
+**v2 en curso** (servicio real; ver `SPEC-V2.md`):
+
+- **Fase A — Señal real:** `signal_source.py` sobre BrainFlow (placa sintética,
+  hardware-ready) + `DatasetSource` (dataset público local), conmutables por
+  configuración.
+- **Fase B — Decoder real:** decodificador de *motor imagery* entrenado offline
+  sobre **BCI Competition IV 2a** (9 sujetos, 22 canales EEG, 4 clases:
+  mano izquierda / mano derecha / pies / lengua). Pipeline **MNE (filtro
+  8–30 Hz) → CSP → LDA**. Convive al lado del decoder v1, sin romperlo.
+
+### Accuracy del decoder real (Fase B, honesta)
+
+Validación cruzada k-fold (k=5) sobre la sesión de entreno de cada sujeto, y
+evaluación held-out entrenando en la sesión T y probando en la sesión E:
+
+| Métrica | Resultado (9 sujetos) |
+|---|---|
+| CV k-fold (media) | **63.4% ± 14.6%** |
+| Held-out T→E (media) | **61.5% ± 13.7%** |
+| Mejores sujetos (A03, A08) | ~80% |
+| Peor sujeto (A05) | ~38% |
+
+Azar = 25% (4 clases). En *motor imagery* de 4 clases, 60–80% por sujeto es lo
+normal; la variabilidad entre sujetos es esperada y está documentada sin inflar.
+
+**Regenerar el modelo** (no se versiona; pesa poco y se reproduce):
+
+```powershell
+python train_decoder.py            # valida los 9 sujetos + entrena y serializa
+python train_decoder.py --demo     # reproduce la sesión E de un sujeto en vivo
+```
+
+El modelo se guarda en `models/mi_decoder.joblib` (ignorado por git). En runtime
+lo carga `neurogate/mi_decoder.py`. Camino de carga del dataset: lectura directa
+de los `.mat` con `scipy.io.loadmat` (offline, copia local).
 
 ## Cómo ejecutarlo
 

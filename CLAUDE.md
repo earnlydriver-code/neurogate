@@ -22,7 +22,7 @@ El proyecto se construye en **dos versiones secuenciales**:
 
 ## Estado
 
-**Versión actual: v2 — Fase A (señal real) implementada y demostrable; pendiente de aprobación del autor para la Fase B. v1 COMPLETA (Pasos 1–11). Demo pública: https://neurogate.streamlit.app · Blog: https://earnlydriver-code.github.io/neurogate. STOP: cada fase de la v2 requiere aprobación explícita del autor antes de pasar a la siguiente.**
+**Versión actual: v2 — Fases A y B completas (señal real BrainFlow/dataset + decoder real motor imagery sobre BCI IV 2a, CV media 63.4%). Pendiente de aprobación del autor para la Fase C (gateway FastAPI). v1 COMPLETA (Pasos 1–11). Demo pública: https://neurogate.streamlit.app · Blog: https://earnlydriver-code.github.io/neurogate. STOP: cada fase de la v2 requiere aprobación explícita del autor antes de pasar a la siguiente.**
 
 (Actualizar esta línea al cerrar cada paso/fase. Formato v2: `v2 — Fase A`.)
 

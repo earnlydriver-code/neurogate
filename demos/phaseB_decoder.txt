@@ -1,0 +1,29 @@
+Fase B — demo decoder real · sesión E (held-out) sujeto A01
+============================================================
+Modelo: mi_decoder.joblib  (entrenado en sesión T)
+Épocas de evaluación: 288  ·  mostrando las primeras 20
+
+  real left_hand   -> decoder tongue       conf= 85%  x
+  real right_hand  -> decoder right_hand   conf= 99%  OK
+  real right_hand  -> decoder idle         conf= 35%  x
+  real left_hand   -> decoder left_hand    conf= 98%  OK
+  real right_hand  -> decoder left_hand    conf= 82%  x
+  real left_hand   -> decoder left_hand    conf= 96%  OK
+  real right_hand  -> decoder right_hand   conf= 72%  OK
+  real feet        -> decoder tongue       conf= 96%  x
+  real right_hand  -> decoder feet         conf= 65%  x
+  real tongue      -> decoder tongue       conf= 94%  OK
+  real left_hand   -> decoder left_hand    conf= 99%  OK
+  real feet        -> decoder tongue       conf= 87%  x
+  real right_hand  -> decoder right_hand   conf= 79%  OK
+  real left_hand   -> decoder tongue       conf= 73%  x
+  real tongue      -> decoder tongue       conf= 96%  OK
+  real tongue      -> decoder tongue       conf= 91%  OK
+  real tongue      -> decoder tongue       conf= 73%  OK
+  real tongue      -> decoder tongue       conf= 97%  OK
+  real tongue      -> decoder tongue       conf= 92%  OK
+  real left_hand   -> decoder left_hand    conf= 96%  OK
+
+Accuracy sobre TODA la sesión E (held-out): 70.8% (204/288)
+Confianza = probabilidad de la clase ganadora (CSP+LDA).
+Por debajo del umbral configurable, la intención se reporta idle.

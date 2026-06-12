@@ -1,0 +1,22 @@
+Fase B — decoder real (BCI Competition IV 2a)
+====================================================
+Camino de carga: scipy.io.loadmat (offline, copia local).
+Pipeline: filtro 8-30 Hz (MNE) -> CSP (6 comp.) -> LDA.
+Clases: left_hand, right_hand, feet, tongue (4 clases).
+Validación: k-fold estratificado (k=5) sobre la sesión T por sujeto.
+
+  Sujeto A01:  CV k-fold = 73.6% ± 5.4%   |  T->E held-out = 71.2%
+  Sujeto A02:  CV k-fold = 62.2% ± 7.3%   |  T->E held-out = 53.5%
+  Sujeto A03:  CV k-fold = 80.5% ± 2.1%   |  T->E held-out = 73.6%
+  Sujeto A04:  CV k-fold = 50.3% ± 6.5%   |  T->E held-out = 63.2%
+  Sujeto A05:  CV k-fold = 37.9% ± 3.5%   |  T->E held-out = 33.0%
+  Sujeto A06:  CV k-fold = 46.5% ± 2.6%   |  T->E held-out = 48.3%
+  Sujeto A07:  CV k-fold = 73.3% ± 3.5%   |  T->E held-out = 60.1%
+  Sujeto A08:  CV k-fold = 81.3% ± 5.0%   |  T->E held-out = 73.3%
+  Sujeto A09:  CV k-fold = 65.3% ± 5.3%   |  T->E held-out = 77.4%
+
+  Media CV (9 sujetos):        63.4% ± 14.6%
+  Media held-out T->E:         61.5% ± 13.7%
+
+Nota: en motor imagery de 4 clases, 60-80% por sujeto es lo
+normal. El azar es 25%. Cifras reales, sin inflar.
