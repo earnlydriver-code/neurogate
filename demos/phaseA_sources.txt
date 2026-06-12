@@ -1,0 +1,9 @@
+Fase A — signal_source v2 (BrainFlow + DatasetSource)
+====================================================
+BrainFlow (SyntheticBoard)  sr=250 Hz  canales=16  chunk1D=(250,)  chunk2D=(16, 250)
+Dataset EDF (S001R04.edf)  sr=160 Hz  canales=64  chunk1D=(250,)  chunk2D=(64, 250)
+
+Conmutación por entorno:
+  NEUROGATE_SIGNAL_SOURCE = synthetic | dataset | simulated
+  NEUROGATE_BOARD_ID      = id de placa BrainFlow (default -1, synthetic)
+  NEUROGATE_DATASET_PATH  = ruta a un EDF (default: copia local del repo)

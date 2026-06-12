@@ -5,3 +5,5 @@ cryptography
 matplotlib
 streamlit
 pytest
+brainflow
+mne

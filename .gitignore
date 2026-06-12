@@ -35,3 +35,10 @@ audit_log.jsonl
 
 # Estrategia de negocio: solo local, nunca al repo publico
 ESTRATEGIA.md
+
+# Datasets EEG (cientos de MB): nunca al repo. Se descargan con
+# eeg_data/datasset de eeg/download_datasets.py o se apunta NEUROGATE_DATASET_PATH
+# a una copia local fuera de OneDrive.
+eeg_data/
+*.edf
+*.mat
