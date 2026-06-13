@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "SDK de cliente para el gateway NeuroGate: autenticación por scopes y consumo de streams neuronales mediados."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "Proprietary - All Rights Reserved" }
 authors = [{ name = "Liber Varona", email = "e741699@gmail.com" }]
 dependencies = [
     "httpx>=0.24",

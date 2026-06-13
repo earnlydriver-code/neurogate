@@ -14,7 +14,7 @@ Prototipo experimental; versiones no semánticas todavía.
 - **Hardening de seguridad** (revisión): secretos placeholder nunca usados, append
   del log atómico (resistente a concurrencia), anti-replay con poda de nonces,
   `verify_token` devuelve 401 (no 500), toda rama de `serve` auditada.
-- Formalización: `LICENSE` (MIT), `SECURITY.md`, `pyproject.toml`, este changelog.
+- Formalización: `LICENSE` (propietaria), `SECURITY.md`, `pyproject.toml`, este changelog.
 
 ## v2 — Servicio real (Fases A–E)
 
