@@ -104,6 +104,17 @@ class TelemetryAnomalyDetector:
         prof = self._profiles.setdefault(client_id, _AppProfile())
         prof.seen_scopes.update(scopes)
 
+    def reset_app(self, client_id: str) -> None:
+        """Olvida la actividad reciente de una app (tras liberarla de cuarentena).
+
+        Sin esto, una app recién liberada se re-marcaría por la ráfaga ya pasada que
+        sigue en su ventana; el operador espera que liberar surta efecto al instante.
+        """
+        prof = self._profiles.get(client_id)
+        if prof is not None:
+            prof.recent_ts.clear()
+            prof.recent_errors.clear()
+
     def clear_timing(self) -> None:
         """Olvida los timestamps del baseline tras entrenar.
 

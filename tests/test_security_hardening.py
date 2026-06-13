@@ -112,3 +112,24 @@ def test_audit_chain_intact_under_concurrency(tmp_path):
     # cadena; con el lock, queda íntegra y todas las entregas se contaron.
     assert state.audit.verify_chain()
     assert state.counters["allowed"] == n
+
+
+def test_release_after_flood_allows_again(tmp_path):
+    """Liberar de cuarentena reinicia el detector: la app vuelve a poder servir."""
+    settings = _settings(tmp_path, jwt_secret=_REAL_SECRET)
+    state = build_state(settings, tmp_path / "a.jsonl")
+    state.register_client("c", "pw", ["read:confirmed_text"])
+    state.prime_anomaly()
+    claims = TokenClaims("c", ["read:confirmed_text"], "j", int(time.time()) + 100)
+
+    for _ in range(40):  # flood -> cuarentena
+        try:
+            state.serve(claims, "read:confirmed_text")
+        except Exception:
+            pass
+    assert state.app_status["c"] == "quarantine"
+
+    state.release_quarantine("c")
+    assert state.app_status["c"] == "ok"
+    state.serve(claims, "read:confirmed_text")  # tras liberar, vuelve a servir
+    assert state.app_status["c"] == "ok"

@@ -170,10 +170,15 @@ class ServiceState:
         self.anomaly.clear_timing()  # el baseline simulado no debe arrastrar timing a lo real
 
     def release_quarantine(self, app_id: str) -> None:
-        """Saca una app de cuarentena (acción explícita)."""
+        """Saca una app de cuarentena (acción explícita) y reinicia su detector.
+
+        Reiniciar la actividad reciente evita que la ráfaga ya pasada vuelva a
+        marcar la app justo tras liberarla (la liberación surte efecto al instante).
+        """
         with self._lock:
             if self.app_status.get(app_id) == "quarantine":
                 self.app_status[app_id] = "ok"
+                self.anomaly.reset_app(app_id)
 
     # --- modo confirmación: cola de entregas pendientes de aprobación ---
 
