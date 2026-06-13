@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     anomaly_baseline_requests: int = 30
     # Factor de pico de tasa que dispara cuarentena (×N sobre la tasa típica).
     anomaly_rate_spike_factor: float = 10.0
+    # Ventana deslizante (s) para medir la tasa de peticiones por app.
+    anomaly_rate_window_seconds: float = 1.0
+    # Mínimo de peticiones en la ventana para considerar flood (evita falsos
+    # positivos con 2-3 peticiones legítimas muy seguidas).
+    anomaly_min_flood_burst: int = 5
     # Rutas del certificado/clave TLS para servir HTTPS/WSS (uvicorn los usa).
     tls_certfile: str = "certs/dev_cert.pem"
     tls_keyfile: str = "certs/dev_key.pem"

@@ -11,7 +11,7 @@ Ataques nuevos v2 (contra el servicio FastAPI, por red):
   [5] Replay del mismo sobre: 1er envío 200 OK -> reenvío 403 (esperado 403)  BLOQUEADO
   [6] Escalada de scopes (read:intent -> confirmed_text): 403 (esperado 403)  BLOQUEADO
   [7] Token forjado (firma incorrecta): 401 (esperado 401)  BLOQUEADO
-  [8] Flood (30 peticiones): 29 frenadas, estado 'quarantine'  CUARENTENA
+  [8] Flood (30 peticiones): 20 frenadas, estado 'quarantine'  CUARENTENA
 
   Log firmado: 34 entradas -> ÍNTEGRO (íntegro)
   Tras alterar 1 entrada (deny->allow): ALTERADO detectado en línea 3 (hash recomputado no coincide (contenido alterado))
