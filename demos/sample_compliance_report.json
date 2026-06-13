@@ -1,0 +1,66 @@
+{
+  "org": "Lab de Neurociencia Demo",
+  "generated_at": "2026-06-12 22:56:31",
+  "log_path": "demos\\sample_audit.jsonl",
+  "integrity": {
+    "ok": true,
+    "first_bad_line": null,
+    "reason": "íntegro"
+  },
+  "last_hash": "10bb6346865912d64c57ba4370a254eee47869b1114d8a0334f83ed8e4df603f",
+  "summary": {
+    "total_events": 3,
+    "by_decision": {
+      "allow": 1,
+      "deny": 1,
+      "quarantine": 1
+    },
+    "by_app": {
+      "cursor_app": {
+        "allow": 1,
+        "deny": 0,
+        "quarantine": 0,
+        "approve": 0,
+        "scopes": [
+          "read:intent"
+        ]
+      },
+      "evil_app": {
+        "allow": 0,
+        "deny": 1,
+        "quarantine": 1,
+        "approve": 0,
+        "scopes": [
+          "read:intent",
+          "read:raw_signal"
+        ]
+      }
+    },
+    "scopes": [
+      "read:intent",
+      "read:raw_signal"
+    ],
+    "period": {
+      "desde": 1000.0,
+      "hasta": 1002.0
+    }
+  },
+  "legal_mapping": {
+    "allow": [
+      "Consentimiento específico y minimización de datos",
+      "La app recibió solo el scope autorizado (Colorado HB1058 opt-in; Montana SB163 consentimiento expreso; CCPA dato sensible)."
+    ],
+    "deny": [
+      "Cumplimiento del límite de consentimiento",
+      "Acceso fuera del scope concedido, bloqueado y registrado (minimización de datos; deber de no exceder lo consentido)."
+    ],
+    "quarantine": [
+      "Deber de protección activa / minimización del daño",
+      "Comportamiento anómalo detectado y contenido automáticamente (Montana SB163; principios de neuroderechos)."
+    ]
+  },
+  "chain_requirement": [
+    "Trazabilidad y evidencia auditable por terceros",
+    "Log encadenado (SHA-256) y firmado (Ed25519): un tercero verifica integridad y autenticidad solo con la clave pública, sin acceso al sistema (accountability; evidencia de cumplimiento)."
+  ]
+}

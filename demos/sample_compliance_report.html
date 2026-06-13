@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Informe de cumplimiento — NeuroGate</title>
+<style>
+ body{font-family:system-ui,Arial,sans-serif;max-width:900px;margin:2rem auto;color:#222;padding:0 1rem}
+ h1{font-size:1.4rem} table{border-collapse:collapse;width:100%;margin:.5rem 0}
+ th,td{border:1px solid #ccc;padding:.4rem .6rem;text-align:left;font-size:.9rem;vertical-align:top}
+ th{background:#f3f4f6} .box{background:#f8fafc;border:1px solid #e2e8f0;padding:.8rem;border-radius:6px}
+ code{font-size:.8rem;word-break:break-all}
+</style></head><body>
+<h1>🧠🛡️ Informe de cumplimiento — NeuroGate</h1>
+<p><b>Organización:</b> Lab de Neurociencia Demo ·
+   <b>Generado:</b> 2026-06-12 22:56:31</p>
+<div class="box"><b>Integridad del registro:</b> <span style='color:#0a0;font-weight:bold'>ÍNTEGRO ✓</span> — íntegro<br>
+<b>Hash final de la cadena:</b> <code>10bb6346865912d64c57ba4370a254eee47869b1114d8a0334f83ed8e4df603f</code></div>
+<p><b>3</b> eventos registrados.</p><p><b>Periodo:</b> 1969-12-31 16:16:40 → 1969-12-31 16:16:42</p>
+<h2>Acceso por aplicación</h2>
+<table><tr><th>App</th><th>Permitido</th><th>Denegado</th><th>Cuarentena</th><th>Aprobado</th><th>Scopes</th></tr>
+<tr><td>cursor_app</td><td>1</td><td>0</td><td>0</td><td>0</td><td>read:intent</td></tr><tr><td>evil_app</td><td>0</td><td>1</td><td>1</td><td>0</td><td>read:intent, read:raw_signal</td></tr></table>
+<h2>Evidencia regulatoria</h2>
+<table><tr><th>Control</th><th>Requisito que satisface</th><th>Detalle</th></tr>
+<tr><td><b>cadena firmada</b></td><td>Trazabilidad y evidencia auditable por terceros</td><td>Log encadenado (SHA-256) y firmado (Ed25519): un tercero verifica integridad y autenticidad solo con la clave pública, sin acceso al sistema (accountability; evidencia de cumplimiento).</td></tr><tr><td>allow</td><td>Consentimiento específico y minimización de datos</td><td>La app recibió solo el scope autorizado (Colorado HB1058 opt-in; Montana SB163 consentimiento expreso; CCPA dato sensible).</td></tr><tr><td>deny</td><td>Cumplimiento del límite de consentimiento</td><td>Acceso fuera del scope concedido, bloqueado y registrado (minimización de datos; deber de no exceder lo consentido).</td></tr><tr><td>quarantine</td><td>Deber de protección activa / minimización del daño</td><td>Comportamiento anómalo detectado y contenido automáticamente (Montana SB163; principios de neuroderechos).</td></tr></table>
+<p style="font-size:.85rem;color:#555">Prueba auditable de consentimiento granular, revocable y
+trazable de datos neuronales. Verificable de forma independiente con la clave pública del emisor.</p>
+</body></html>
