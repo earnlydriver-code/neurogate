@@ -9,7 +9,7 @@ description = "Middleware de seguridad y cumplimiento para datos neuronales: con
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "NeuroGate authors" }]
+authors = [{ name = "Liber Varona", email = "e741699@gmail.com" }]
 keywords = ["bci", "eeg", "neural-data", "privacy", "compliance", "security"]
 classifiers = [
     "Development Status :: 4 - Beta",

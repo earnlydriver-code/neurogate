@@ -9,6 +9,7 @@ description = "SDK de cliente para el gateway NeuroGate: autenticación por scop
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+authors = [{ name = "Liber Varona", email = "e741699@gmail.com" }]
 dependencies = [
     "httpx>=0.24",
     "websockets>=12",

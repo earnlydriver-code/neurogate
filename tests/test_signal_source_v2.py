@@ -94,7 +94,10 @@ def test_lsl_source_roundtrip():
     pusher = threading.Thread(target=_push, daemon=True)
     pusher.start()
     try:
-        src = LslSource(stream_type="EEG", chunk_size=20, resolve_timeout=10.0)
+        try:
+            src = LslSource(stream_type="EEG", chunk_size=20, resolve_timeout=10.0)
+        except RuntimeError:
+            pytest.skip("LSL no descubre streams en este entorno (p. ej. CI sin multicast)")
         chunk = src.get_chunk()
         assert isinstance(chunk, np.ndarray) and chunk.ndim == 1 and chunk.size == 20
         chunk2d = src.get_chunk_2d()

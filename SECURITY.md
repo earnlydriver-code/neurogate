@@ -7,7 +7,7 @@ estado.
 ## Reportar una vulnerabilidad
 
 Por favor **no abras un issue público** para vulnerabilidades. Escribe a
-`security@TU-DOMINIO` (sustituye por el contacto real antes de publicar) con:
+`e741699@gmail.com` con:
 
 - descripción y pasos de reproducción,
 - impacto estimado,
