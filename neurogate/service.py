@@ -20,6 +20,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
+import secrets
+import threading
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +46,29 @@ _CONFIRMED_TEXT = b"<texto confirmado por el usuario>"
 
 # Intervalo (s) entre ticks del bucle de fondo señal→decoder.
 _TICK_SECONDS = 0.2
+
+_log = logging.getLogger("neurogate.service")
+
+# Valores placeholder de config.py: si el servicio los recibe, NO se usan tal cual
+# (serían públicos del repo); se sustituyen por un secreto aleatorio efímero.
+_PLACEHOLDER_JWT = "dev-insecure-change-me"
+_PLACEHOLDER_MASTER = "dev-insecure-master-key-change-me"
+
+
+def _resolve_secret(value: str, placeholder: str, env_name: str) -> str:
+    """Devuelve el secreto, o uno aleatorio efímero si llega el placeholder del repo.
+
+    Cierra el riesgo de arrancar firmando JWT / derivando claves con un secreto
+    público del repositorio. Para persistencia o despliegue multi-instancia hay que
+    definir la variable de entorno correspondiente.
+    """
+    if value == placeholder:
+        _log.warning(
+            "%s no configurada: se usa un secreto aleatorio efímero para este "
+            "proceso. Define %s (ver .env.example) para persistencia/multi-instancia.",
+            env_name, env_name)
+        return secrets.token_urlsafe(48)
+    return value
 
 
 def _ensure_audit_key(settings: Settings) -> object:
@@ -81,21 +107,30 @@ class ServiceState:
     latest_intent: Intent = Intent.IDLE
     counters: dict = None  # type: ignore[assignment]
     app_status: dict = None  # type: ignore[assignment]
+    pending: dict = None  # type: ignore[assignment]
     _requests_since_rotation: int = field(default=0, init=False)
+    # Protege el estado compartido (log encadenado, contadores, cripto, pendientes)
+    # entre el bucle de fondo, el WebSocket y los endpoints síncronos (threadpool).
+    _lock: "threading.RLock" = field(default_factory=threading.RLock, init=False,
+                                     repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.counters is None:
             self.counters = {"requests": 0, "allowed": 0, "blocked": 0}
         if self.app_status is None:
             self.app_status = {}
+        if self.pending is None:
+            # Entregas en espera de confirmación del usuario: (client_id, scope) -> motivo.
+            self.pending = {}
 
     # --- bucle de señal (reutiliza signal v1 + decoder v1) ---
 
     def tick(self) -> Intent:
         """Avanza un bloque: lee señal y decodifica la intención actual."""
-        chunk = self.signal.get_chunk()
-        self.latest_intent = self.decoder.decode(chunk)
-        return self.latest_intent
+        with self._lock:
+            chunk = self.signal.get_chunk()
+            self.latest_intent = self.decoder.decode(chunk)
+            return self.latest_intent
 
     # --- registro de clientes (auth + consent + crypto + anomaly) ---
 
@@ -136,8 +171,40 @@ class ServiceState:
 
     def release_quarantine(self, app_id: str) -> None:
         """Saca una app de cuarentena (acción explícita)."""
-        if self.app_status.get(app_id) == "quarantine":
-            self.app_status[app_id] = "ok"
+        with self._lock:
+            if self.app_status.get(app_id) == "quarantine":
+                self.app_status[app_id] = "ok"
+
+    # --- modo confirmación: cola de entregas pendientes de aprobación ---
+
+    def approve_pending(self, client_id: str, scope: str) -> bool:
+        """El operador aprueba una entrega pendiente; la app podrá recibirla una vez.
+
+        Mapea el scope a su DataType y registra la aprobación de un solo uso en el
+        ConsentFilter. Devuelve True si había un pendiente que aprobar.
+        """
+        from neurogate.auth import SCOPE_TO_DATATYPE
+
+        with self._lock:
+            if (client_id, scope) not in self.pending:
+                return False
+            dtype = SCOPE_TO_DATATYPE.get(scope)
+            if dtype is not None:
+                self.consent.approve_once(client_id, dtype)
+            del self.pending[(client_id, scope)]
+            self.audit.append(SignedAuditEvent(client_id, scope, "approve",
+                                               "entrega aprobada por el usuario"))
+            return True
+
+    def deny_pending(self, client_id: str, scope: str) -> bool:
+        """El operador deniega una entrega pendiente. Devuelve True si existía."""
+        with self._lock:
+            if (client_id, scope) not in self.pending:
+                return False
+            del self.pending[(client_id, scope)]
+            self.audit.append(SignedAuditEvent(client_id, scope, "deny",
+                                               "entrega denegada por el usuario"))
+            return True
 
     # --- payload por tipo (igual que el Gateway v1) ---
 
@@ -158,40 +225,46 @@ class ServiceState:
         Devuelve el sobre cifrado (CryptoLayerV2) o lanza AuthError. TODA rama
         (allow/deny/quarantine) pasa por el log firmado, sin excepciones.
         """
-        client_id = claims.client_id
-        dtype = self._datatype_for_scope(claims, scope)  # 403 si el scope no aplica
-        request = AccessRequest(client_id, dtype)
-        self.counters["requests"] += 1
+        with self._lock:
+            client_id = claims.client_id
+            dtype = self._datatype_for_scope(claims, scope)  # 403 si el scope no aplica
+            request = AccessRequest(client_id, dtype)
+            self.counters["requests"] += 1
 
-        # 0. Cuarentena: una app en cuarentena no recibe nada (y se audita).
-        if self.app_status.get(client_id) == "quarantine":
-            self._block(client_id, scope, "quarantine", "app en cuarentena")
-            raise AuthError(403, "app en cuarentena")
+            # 0. Cuarentena: una app en cuarentena no recibe nada (y se audita).
+            if self.app_status.get(client_id) == "quarantine":
+                self._block(client_id, scope, "quarantine", "app en cuarentena")
+                raise AuthError(403, "app en cuarentena")
 
-        # 1. Consentimiento (sin consumir la aprobación todavía).
-        decision = self.consent.check(request, consume=False)
-        if not decision.allowed:
-            self._block(client_id, scope, "deny", decision.reason)
-            raise AuthError(403, decision.reason)
+            # 1. Consentimiento (sin consumir la aprobación todavía).
+            decision = self.consent.check(request, consume=False)
+            if not decision.allowed:
+                # Si falla solo por falta de confirmación, encolamos un pendiente para
+                # que el operador lo apruebe/deniegue desde el dashboard (modo confirmación).
+                if self.consent.requires_confirmation(dtype) and "confirmación" in decision.reason:
+                    self.pending[(client_id, scope)] = decision.reason
+                self._block(client_id, scope, "deny", decision.reason)
+                raise AuthError(403, decision.reason)
 
-        # 2. Anomalías sobre telemetría real (si hay baseline entrenado).
-        if self.anomaly.is_trained:
-            result = self.anomaly.observe(
-                TelemetryRecord(client_id, scope, request.timestamp,
-                                payload_size=len(self._payload_for(dtype))))
-            if result.is_anomalous:
-                self.app_status[client_id] = "quarantine"
-                self._block(client_id, scope, "quarantine", f"anomalía: {result.reason}")
-                raise AuthError(403, f"anomalía: {result.reason}")
+            # 2. Anomalías sobre telemetría real (si hay baseline entrenado).
+            if self.anomaly.is_trained:
+                result = self.anomaly.observe(
+                    TelemetryRecord(client_id, scope, request.timestamp,
+                                    payload_size=len(self._payload_for(dtype))))
+                if result.is_anomalous:
+                    self.app_status[client_id] = "quarantine"
+                    self._block(client_id, scope, "quarantine", f"anomalía: {result.reason}")
+                    raise AuthError(403, f"anomalía: {result.reason}")
 
-        # 3. Cifrado + 4. Auditoría (permitido). Recién aquí se gasta la aprobación.
-        if self.consent.requires_confirmation(dtype):
-            self.consent.consume_approval(client_id, dtype)
-        payload = self.crypto.encrypt_for(client_id, self._payload_for(dtype))
-        self._maybe_rotate()
-        self.counters["allowed"] += 1
-        self.audit.append(SignedAuditEvent(client_id, scope, "allow", "autorizado"))
-        return payload
+            # 3. Cifrado + 4. Auditoría (permitido). Recién aquí se gasta la aprobación.
+            if self.consent.requires_confirmation(dtype):
+                self.consent.consume_approval(client_id, dtype)
+                self.pending.pop((client_id, scope), None)  # ya entregado: limpia el pendiente
+            payload = self.crypto.encrypt_for(client_id, self._payload_for(dtype))
+            self._maybe_rotate()
+            self.counters["allowed"] += 1
+            self.audit.append(SignedAuditEvent(client_id, scope, "allow", "autorizado"))
+            return payload
 
     def _maybe_rotate(self) -> None:
         """Rota las claves de cifrado cada N requests servidos (si está configurado)."""
@@ -218,6 +291,11 @@ class ServiceState:
             raise AuthError(403, f"scope insuficiente: falta {scope}")
         dtype = SCOPE_TO_DATATYPE.get(scope)
         if dtype is None:
+            # Scope sin dato neuronal (p. ej. read:stats/admin) pedido a serve():
+            # también se audita, para no dejar ninguna decisión fuera del log.
+            self.counters["requests"] += 1
+            self._block(claims.client_id, scope, "deny",
+                        f"el scope {scope} no entrega datos neuronales")
             raise AuthError(403, f"el scope {scope} no entrega datos neuronales")
         return dtype
 
@@ -233,26 +311,32 @@ class ServiceState:
         ya consumido (replay) se rechaza con ReplayError. Toda decisión se audita.
         """
         client_id = claims.client_id
-        try:
-            plaintext = self.crypto.decrypt(client_id, raw)
-        except ReplayError as e:
-            self._block(client_id, "decrypt", "deny", f"replay: {e}")
-            raise AuthError(403, f"replay rechazado: {e}")
-        except (DecryptError, KeyError) as e:
-            self._block(client_id, "decrypt", "deny", f"descifrado inválido: {e}")
-            raise AuthError(400, f"sobre inválido: {e}")
-        return plaintext
+        with self._lock:
+            try:
+                plaintext = self.crypto.decrypt(client_id, raw)
+            except ReplayError as e:
+                self._block(client_id, "decrypt", "deny", f"replay: {e}")
+                raise AuthError(403, f"replay rechazado: {e}")
+            except (DecryptError, KeyError) as e:
+                self._block(client_id, "decrypt", "deny", f"descifrado inválido: {e}")
+                raise AuthError(400, f"sobre inválido: {e}")
+            return plaintext
 
     def live_state(self) -> dict:
         """Snapshot del estado en vivo para el dashboard / admin."""
-        return {
-            "latest_intent": self.latest_intent.value,
-            "counters": dict(self.counters),
-            "app_status": dict(self.app_status),
-            "clients": self.auth.clients,
-            "key_version": self.crypto.version,
-            "audit_ok": self.audit.verify_chain(),
-        }
+        with self._lock:
+            return {
+                "latest_intent": self.latest_intent.value,
+                "counters": dict(self.counters),
+                "app_status": dict(self.app_status),
+                "clients": self.auth.clients,
+                "scopes": {cid: self.auth.client_scopes(cid) for cid in self.auth.clients},
+                "key_version": self.crypto.version,
+                "audit_ok": self.audit.verify_chain(),
+                # Entregas en espera de confirmación, como lista serializable.
+                "pending": [{"client_id": cid, "scope": scope, "reason": reason}
+                            for (cid, scope), reason in self.pending.items()],
+            }
 
 
 # --- modelos de request/response de la API ---
@@ -285,6 +369,13 @@ class ReleaseRequest(BaseModel):
     client_id: str
 
 
+class PendingRequest(BaseModel):
+    """Cuerpo de POST /admin/approve y /admin/deny (modo confirmación)."""
+
+    client_id: str
+    scope: str
+
+
 class DecryptRequest(BaseModel):
     """Cuerpo de POST /data/echo: un sobre cifrado (base64) que la app reenvía."""
 
@@ -298,16 +389,23 @@ def build_state(settings: Settings, audit_path: Path | str) -> ServiceState:
     en sus versiones serias (crypto_v2, signed_audit, telemetry_anomaly).
     """
     seed = settings.seed
+    # Nunca firmar JWT ni derivar claves con el secreto placeholder del repo.
+    jwt_secret = _resolve_secret(settings.jwt_secret, _PLACEHOLDER_JWT,
+                                 "NEUROGATE_JWT_SECRET")
+    master_key = _resolve_secret(settings.master_key, _PLACEHOLDER_MASTER,
+                                 "NEUROGATE_MASTER_KEY")
     private_key = _ensure_audit_key(settings)
     state = ServiceState(
-        auth=AuthManager(settings.jwt_secret, settings.jwt_algorithm,
+        auth=AuthManager(jwt_secret, settings.jwt_algorithm,
                          settings.token_expire_minutes, settings.clinical_mode),
         consent=ConsentFilter(),
         anomaly=TelemetryAnomalyDetector(
             baseline_requests=settings.anomaly_baseline_requests,
-            rate_spike_factor=settings.anomaly_rate_spike_factor, seed=seed),
+            rate_spike_factor=settings.anomaly_rate_spike_factor,
+            rate_window_seconds=settings.anomaly_rate_window_seconds,
+            min_flood_burst=settings.anomaly_min_flood_burst, seed=seed),
         crypto=CryptoLayerV2(
-            master_key=settings.master_key.encode("utf-8"),
+            master_key=master_key.encode("utf-8"),
             replay_window_seconds=settings.replay_window_seconds,
             retained_versions=settings.retained_key_versions),
         audit=SignedAuditLog(audit_path, private_key),
@@ -346,6 +444,35 @@ def create_app(settings: Settings | None = None,
     app.state.service = state
 
     _register_routes(app)
+    return app
+
+
+# Clientes de demo para la Fase E: el dashboard y run_demo_e.py comparten estas
+# credenciales (en una instalación real cada app traería las suyas por entorno).
+DEMO_CLIENTS = {
+    "cursor_app": ("cursor-secret-please-change", ["read:intent"]),
+    "messaging_app": ("messaging-secret-please-change", ["read:confirmed_text"]),
+    "reader_app": ("reader-secret-please-change", ["read:confirmed_text"]),
+    "dashboard_admin": ("dashboard-admin-secret-change", ["admin", "read:stats"]),
+}
+
+
+def build_demo_app(settings: Settings | None = None,
+                   audit_path: Path | str = "audit_service.jsonl",
+                   background_loop: bool = True) -> FastAPI:
+    """Crea la app con los clientes de demo ya registrados y el baseline aprendido.
+
+    La usan el arranque local (``run_demo_e.py``) y el dashboard de la Fase E para
+    tener un servicio listo: apps cliente dadas de alta, admin para el dashboard y
+    detector de anomalías en vigilancia.
+    """
+    app = create_app(settings=settings, audit_path=audit_path,
+                     background_loop=background_loop, prime_anomaly=False)
+    state = app.state.service
+    for client_id, (secret, scopes) in DEMO_CLIENTS.items():
+        state.register_client(client_id, secret, scopes)
+    state.prime_anomaly(seed=state.settings.seed)  # baseline normal -> vigilancia
+    state.tick()  # una intención en memoria desde el arranque
     return app
 
 
@@ -448,6 +575,20 @@ def _register_routes(app: FastAPI) -> None:
         """Saca una app de cuarentena (acción manual del operador). Requiere admin."""
         current_state().release_quarantine(body.client_id)
         return {"released": body.client_id}
+
+    @app.post("/admin/approve")
+    def admin_approve(body: PendingRequest,
+                      claims: TokenClaims = Depends(require_scope("admin"))) -> dict:
+        """Aprueba una entrega pendiente de confirmación (modo confirmación). Requiere admin."""
+        approved = current_state().approve_pending(body.client_id, body.scope)
+        return {"approved": approved, "client_id": body.client_id, "scope": body.scope}
+
+    @app.post("/admin/deny")
+    def admin_deny(body: PendingRequest,
+                   claims: TokenClaims = Depends(require_scope("admin"))) -> dict:
+        """Deniega una entrega pendiente de confirmación. Requiere admin."""
+        denied = current_state().deny_pending(body.client_id, body.scope)
+        return {"denied": denied, "client_id": body.client_id, "scope": body.scope}
 
     @app.websocket("/stream/intents")
     async def stream_intents(websocket: WebSocket) -> None:

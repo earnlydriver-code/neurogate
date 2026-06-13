@@ -1,0 +1,32 @@
+# Orquestación local del gateway NeuroGate (Fase E).
+#
+# Levanta el servicio FastAPI en http://localhost:8077 con los clientes de demo
+# registrados. El dashboard Streamlit se ejecuta aparte (en local o en Streamlit
+# Cloud) apuntando a la URL del gateway; ver docs/DEPLOY.md.
+#
+# Uso:
+#   docker compose up --build          # construye y levanta el gateway
+#   docker compose down                # lo detiene
+#
+# Los secretos se inyectan desde .env (NO versionado). Copia .env.example a .env.
+
+services:
+  gateway:
+    build: .
+    image: neurogate-gateway
+    container_name: neurogate-gateway
+    ports:
+      - "8077:8077"
+    # Variables de entorno NEUROGATE_* (JWT secret, master key, anomalía, TLS...).
+    env_file:
+      - .env
+    # Persistir el log auditado firmado fuera del contenedor (regenerable).
+    volumes:
+      - ./audit_data:/app/audit_data
+    environment:
+      # El log se escribe en el volumen montado.
+      - NEUROGATE_AUDIT_PRIVATE_KEY_PATH=/app/audit_data/audit_ed25519_private.pem
+      - NEUROGATE_AUDIT_PUBLIC_KEY_PATH=/app/audit_data/audit_ed25519_public.pem
+    command: ["python", "run_demo_e.py", "--host", "0.0.0.0", "--port", "8077",
+              "--audit", "/app/audit_data/audit_service.jsonl"]
+    restart: unless-stopped

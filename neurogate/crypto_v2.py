@@ -93,7 +93,10 @@ class CryptoLayerV2:
         # Cuántas versiones anteriores se aceptan al descifrar durante la rotación.
         self._retained_versions = retained_versions
         self._apps: set[str] = set()
-        self._seen_nonces: set[bytes] = set()  # anti-replay (nonces ya consumidos)
+        # Anti-replay: nonce consumido -> instante en que se vio. Se podan los que
+        # salen de la ventana (un replay viejo ya lo rechaza el chequeo de timestamp),
+        # de modo que el conjunto no crece sin límite en un servicio de larga vida.
+        self._seen_nonces: dict[bytes, float] = {}
 
     @property
     def version(self) -> int:
@@ -158,6 +161,7 @@ class CryptoLayerV2:
 
         if check_replay:
             current = now if now is not None else time.time()
+            self._prune_nonces(current)
             if abs(current - env.timestamp) > self._replay_window:
                 raise ReplayError("timestamp fuera de la ventana anti-replay")
             if env.nonce in self._seen_nonces:
@@ -167,8 +171,16 @@ class CryptoLayerV2:
         plaintext = self._try_decrypt(app_id, env, aad)
 
         if check_replay:
-            self._seen_nonces.add(env.nonce)
+            self._seen_nonces[env.nonce] = current
         return plaintext
+
+    def _prune_nonces(self, now: float) -> None:
+        """Olvida nonces fuera de la ventana anti-replay (un replay viejo ya lo
+        rechaza el chequeo de timestamp), acotando la memoria del detector."""
+        horizon = now - self._replay_window
+        stale = [n for n, ts in self._seen_nonces.items() if ts < horizon]
+        for n in stale:
+            del self._seen_nonces[n]
 
     def _try_decrypt(self, app_id: str, env: Envelope, aad: bytes) -> bytes:
         """Intenta descifrar con la versión del sobre y versiones retenidas."""

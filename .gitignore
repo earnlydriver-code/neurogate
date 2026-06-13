@@ -58,8 +58,14 @@ ESTRATEGIA.md
 # Analisis de mercado/competencia: solo local, nunca al repo publico
 ANALISIS-COMPETENCIA-BCI.md
 
+# Reportes de revision (agentes): solo local, para revision del autor
+reports/
+
 # Logs de auditoria de demos del servicio (runtime, regenerables)
 demos/*_service_audit.jsonl
+
+# Volumen de despliegue (Fase E, docker-compose): logs y claves de runtime
+audit_data/
 
 # Datasets EEG (cientos de MB): nunca al repo. Se descargan con
 # eeg_data/datasset de eeg/download_datasets.py o se apunta NEUROGATE_DATASET_PATH

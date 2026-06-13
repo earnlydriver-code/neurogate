@@ -165,8 +165,12 @@ class AuthManager:
         jti = payload.get("jti", "")
         if jti in self._revoked:
             raise AuthError(401, "token revocado")
-        return TokenClaims(payload["client_id"], payload.get("scopes", []),
-                           jti, payload["exp"])
+        # Un JWT bien firmado pero sin client_id/exp es inválido -> 401 (no 500).
+        client_id = payload.get("client_id")
+        exp = payload.get("exp")
+        if client_id is None or exp is None:
+            raise AuthError(401, "token sin client_id o exp")
+        return TokenClaims(client_id, payload.get("scopes", []), jti, exp)
 
     def revoke(self, jti: str) -> None:
         """Revoca un token por su jti: cualquier request con ese jti queda bloqueada."""

@@ -96,6 +96,28 @@ proceso en el [blog](https://earnlydriver-code.github.io/neurogate/).
   sobre **BCI Competition IV 2a** (9 sujetos, 22 canales EEG, 4 clases:
   mano izquierda / mano derecha / pies / lengua). Pipeline **MNE (filtro
   8–30 Hz) → CSP → LDA**. Convive al lado del decoder v1, sin romperlo.
+- **Fase C — Gateway como servicio:** FastAPI con JWT, scopes y revocación en
+  caliente; dos apps cliente de ejemplo (`examples/`) que se conectan por red.
+- **Fase D — Hardening:** cifrado por app (HKDF + AESGCM + rotación + anti-replay),
+  log firmado Ed25519 (`verify_audit.py`), anomalías sobre telemetría real y suite
+  de 8 ataques en `pytest` + demo en vivo (`demo_attack.py`).
+- **Fase E — Demo de inversión:** dashboard que es **un cliente más del servicio**
+  (`neurogate/dashboard_service.py`): se autentica y lee `GET /admin/state` por
+  red. Material de despliegue (`Dockerfile`, `docker-compose.yml`, `docs/DEPLOY.md`)
+  y arranque local con `run_demo_e.py`.
+
+### Demo de la Fase E (servicio real + dashboard)
+
+```powershell
+# Terminal 1 — gateway con los clientes de demo registrados
+python run_demo_e.py                       # http://127.0.0.1:8077
+
+# Terminal 2 — dashboard apuntando al gateway (cliente admin por red)
+streamlit run neurogate/dashboard_service.py
+```
+
+El despliegue (Docker, TLS, Streamlit Cloud) y el guion de demo de 1 minuto están
+en [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ### Accuracy del decoder real (Fase B, honesta)
 

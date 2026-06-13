@@ -1,0 +1,70 @@
+NeuroGate · Fase E — dashboard contra el servicio real
+============================================================
+
+Qué es
+------
+El dashboard de la Fase E (neurogate/dashboard_service.py) ya NO comparte proceso
+con el gateway: es un cliente HTTP más del servicio. Se autentica con un token de
+scope `admin` (POST /auth/token) y lee el estado en vivo del servicio
+(GET /admin/state) periódicamente. Todo lo que muestra son datos reales del
+gateway por red.
+
+Cómo arrancarlo en local (servicio + dashboard)
+-----------------------------------------------
+  # Terminal 1 — gateway con los clientes de demo registrados
+  python run_demo_e.py                      # http://127.0.0.1:8077
+
+  # Terminal 2 — dashboard apuntando al gateway
+  streamlit run neurogate/dashboard_service.py
+
+La URL del servicio es configurable en la barra lateral o con la variable de
+entorno NEUROGATE_SERVICE_URL (por defecto http://127.0.0.1:8077).
+
+Qué se ve (vistas del dashboard)
+--------------------------------
+  - Intención decodificada en vivo (de GET /admin/state).
+  - Semáforo de apps: 🟢 ok / 🟡 cuarentena / 🔴 bloqueada, con sus scopes.
+  - Contadores: peticiones, permitidas, amenazas bloqueadas.
+  - Verificación de integridad del log firmado con un clic (ÍNTEGRO/ALTERADO).
+  - Panel de modo confirmación: aprobar/denegar entregas pendientes de scopes
+    sensibles (endpoints /admin/approve y /admin/deny).
+  - Botón "Simular ataque": lanza ataques HTTP reales contra el servicio en vivo
+    y deja la app atacada en cuarentena, reflejada en el semáforo.
+
+Flujo de datos capturado (servicio real, sin navegador)
+-------------------------------------------------------
+Estado inicial (GET /admin/state, autenticado como dashboard_admin):
+  intencion decodificada: idle
+  🟢 cursor_app       ok          scopes=['read:intent']
+  🟢 dashboard_admin  ok          scopes=['admin', 'read:stats']
+  🟢 messaging_app    ok          scopes=['read:confirmed_text']
+  🟢 reader_app       ok          scopes=['read:confirmed_text']
+  contadores: {'requests': 0, 'allowed': 0, 'blocked': 0}   log integro: True
+
+Simular ataque (ataques HTTP reales contra el servicio en vivo):
+  - Escalada de scopes (read:intent -> confirmed_text): 403 BLOQUEADO
+  - Token forjado (firma falsa): 401 BLOQUEADO
+  - Replay del mismo sobre cifrado: BLOQUEADO
+  - Flood (messaging_app, ráfaga de 30 peticiones): 20 frenadas
+  - Estado de messaging_app tras el ataque: 🟡 quarantine
+
+Estado tras el ataque:
+  🟢 cursor_app       ok
+  🟢 dashboard_admin  ok
+  🟡 messaging_app    quarantine
+  🟢 reader_app       ok
+  contadores: {'requests': 32, 'allowed': 11, 'blocked': 22}
+  amenazas bloqueadas: 22   log firmado integro: True
+
+Despliegue (material, sin desplegar de verdad)
+----------------------------------------------
+  - Dockerfile + docker-compose.yml: gateway containerizado (uvicorn).
+  - docs/DEPLOY.md: local, Docker, TLS, Streamlit Cloud, verificación del log y
+    guion de demo de 1 minuto.
+
+Tests
+-----
+  - tests/test_service_confirmation.py: cola de pendientes + /admin/approve y
+    /admin/deny (modo confirmación).
+  - tests/test_dashboard_service.py: funciones puras del dashboard + ServiceClient
+    contra la app real (sin navegador). 104 tests verdes en total.

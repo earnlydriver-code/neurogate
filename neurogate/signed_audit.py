@@ -18,6 +18,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -104,6 +105,9 @@ class SignedAuditLog:
         self.path = Path(path)
         self._private = private_key
         self._last_hash = self._recover_last_hash()
+        # El append (leer-firmar-escribir _last_hash) debe ser atómico: sin esto,
+        # dos escrituras concurrentes compartirían prev_hash y romperían la cadena.
+        self._lock = threading.Lock()
 
     def _recover_last_hash(self) -> str:
         """Recupera el hash de la última entrada para continuar la cadena."""
@@ -121,18 +125,19 @@ class SignedAuditLog:
         La firma cubre el hash de la entrada (que ya incluye prev_hash + evento):
         alterar cualquier campo invalida el hash y, por tanto, la firma.
         """
-        event_dict = asdict(event)
-        h = _entry_hash(self._last_hash, event_dict)
-        signature = self._private.sign(h.encode("utf-8"))
-        record = {
-            "event": event_dict,
-            "prev_hash": self._last_hash,
-            "hash": h,
-            "signature": base64.b64encode(signature).decode("ascii"),
-        }
-        with self.path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        self._last_hash = h
+        with self._lock:
+            event_dict = asdict(event)
+            h = _entry_hash(self._last_hash, event_dict)
+            signature = self._private.sign(h.encode("utf-8"))
+            record = {
+                "event": event_dict,
+                "prev_hash": self._last_hash,
+                "hash": h,
+                "signature": base64.b64encode(signature).decode("ascii"),
+            }
+            with self.path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            self._last_hash = h
 
     def verify_chain(self) -> bool:
         """True si la cadena y todas las firmas son válidas (atajo de verify_log)."""
