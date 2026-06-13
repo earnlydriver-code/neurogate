@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -9,8 +11,14 @@ import pytest
 pytest.importorskip("brainflow")
 pytest.importorskip("mne")
 
-from neurogate.signal_source import (BrainFlowSource, DatasetSource,
-                                     SignalSource, make_source)
+from neurogate.signal_source import (_DEFAULT_DATASET_PATH, BrainFlowSource,
+                                     DatasetSource, SignalSource, make_source)
+
+
+def _require_dataset() -> None:
+    """Omite el test si el EDF local no está (p. ej. en CI, donde eeg_data no se versiona)."""
+    if not Path(_DEFAULT_DATASET_PATH).exists():
+        pytest.skip("dataset EDF local no disponible (no versionado; p. ej. en CI)")
 
 
 def test_brainflow_chunk_is_1d_nonempty():
@@ -40,6 +48,7 @@ def test_brainflow_chunk_2d_is_2d():
 
 def test_dataset_chunk_is_1d_from_local_edf():
     """DatasetSource.get_chunk() es ndarray 1-D leyendo el EDF local."""
+    _require_dataset()
     with DatasetSource(chunk_size=160) as src:
         chunk = src.get_chunk()
         assert isinstance(chunk, np.ndarray)
@@ -52,19 +61,22 @@ def test_dataset_chunk_is_1d_from_local_edf():
 
 def test_make_source_respects_env(monkeypatch):
     """make_source respeta la env var NEUROGATE_SIGNAL_SOURCE."""
-    monkeypatch.setenv("NEUROGATE_SIGNAL_SOURCE", "dataset")
-    src = make_source(chunk_size=160)
-    try:
-        assert isinstance(src, DatasetSource)
-    finally:
-        src.close()
-
+    # 'simulated' y la prioridad del argumento explícito no requieren dataset.
     monkeypatch.setenv("NEUROGATE_SIGNAL_SOURCE", "simulated")
     assert isinstance(make_source(), SignalSource)
 
     # Argumento explícito tiene prioridad sobre la env var.
     monkeypatch.setenv("NEUROGATE_SIGNAL_SOURCE", "dataset")
     assert isinstance(make_source("simulated"), SignalSource)
+
+    # 'dataset' solo se comprueba si el EDF local está disponible (no en CI).
+    if Path(_DEFAULT_DATASET_PATH).exists():
+        monkeypatch.setenv("NEUROGATE_SIGNAL_SOURCE", "dataset")
+        src = make_source(chunk_size=160)
+        try:
+            assert isinstance(src, DatasetSource)
+        finally:
+            src.close()
 
 
 def test_make_source_unknown_raises():
