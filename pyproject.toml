@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neurogate"
+version = "0.2.0"
+description = "Middleware de seguridad y cumplimiento para datos neuronales: consentimiento por scopes, log firmado verificable, anomalías y cifrado por app."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "NeuroGate authors" }]
+keywords = ["bci", "eeg", "neural-data", "privacy", "compliance", "security"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering",
+]
+
+# Dependencias de runtime del gateway/servicio (núcleo). Las pesadas/específicas
+# van como extras para no imponerlas a quien solo use el servicio.
+dependencies = [
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "cryptography",
+    "fastapi",
+    "uvicorn[standard]",
+    "websockets",
+    "httpx",
+    "pyjwt",
+    "passlib",
+    "pydantic-settings",
+]
+
+[project.optional-dependencies]
+signal = ["brainflow", "pylsl", "mne"]   # adquisición real / LSL / EDF
+train = ["mne", "joblib"]                  # entrenamiento del decoder (BCI IV 2a)
+dashboard = ["streamlit", "matplotlib"]    # paneles
+dev = ["pytest", "pytest-asyncio"]
+
+[project.urls]
+Homepage = "https://github.com/earnlydriver-code/neurogate"
+Demo = "https://neurogate.streamlit.app"
+
+[tool.setuptools]
+packages = ["neurogate"]
