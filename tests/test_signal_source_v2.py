@@ -70,3 +70,38 @@ def test_make_source_respects_env(monkeypatch):
 def test_make_source_unknown_raises():
     with pytest.raises(ValueError):
         make_source("telepathy")
+
+
+def test_lsl_source_roundtrip():
+    """LslSource lee de un stream LSL real (outlet local), respetando el contrato."""
+    pylsl = pytest.importorskip("pylsl")
+    import threading
+    import time as _t
+
+    from neurogate.signal_source import LslSource
+
+    info = pylsl.StreamInfo("neurogate_test", "EEG", 4, 100, "float32", "uid-test")
+    outlet = pylsl.StreamOutlet(info)
+    stop = threading.Event()
+
+    def _push():
+        i = 0
+        while not stop.is_set():
+            outlet.push_sample([float(i), float(i + 1), float(i + 2), float(i + 3)])
+            i += 1
+            _t.sleep(0.005)
+
+    pusher = threading.Thread(target=_push, daemon=True)
+    pusher.start()
+    try:
+        src = LslSource(stream_type="EEG", chunk_size=20, resolve_timeout=10.0)
+        chunk = src.get_chunk()
+        assert isinstance(chunk, np.ndarray) and chunk.ndim == 1 and chunk.size == 20
+        chunk2d = src.get_chunk_2d()
+        assert chunk2d.ndim == 2 and chunk2d.shape[0] == 4
+        assert src.sampling_rate == 100
+        assert len(src.channel_names) == 4
+        src.close()
+    finally:
+        stop.set()
+        pusher.join(timeout=2.0)

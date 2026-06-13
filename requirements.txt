@@ -7,6 +7,7 @@ streamlit
 pytest
 brainflow
 mne
+pylsl
 joblib
 fastapi
 uvicorn[standard]

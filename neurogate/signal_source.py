@@ -250,11 +250,98 @@ class DatasetSource:
         self.close()
 
 
+class LslSource:
+    """Fuente de señal sobre Lab Streaming Layer (LSL), el estándar del mundo research.
+
+    Se conecta a un stream LSL ya publicado por cualquier software/dispositivo
+    (OpenBCI GUI, muse-lsl, BrainVision, etc.) y lo entrega con la MISMA interfaz
+    que las demás fuentes. Esto multiplica los dispositivos a los que NeuroGate se
+    acopla sin tocar el resto del sistema (entra por ``make_source``).
+
+    El stream se resuelve por nombre (``NEUROGATE_LSL_NAME``) o, si no, por tipo
+    (``NEUROGATE_LSL_TYPE``, por defecto ``EEG``).
+    """
+
+    def __init__(self, stream_type: str | None = None, stream_name: str | None = None,
+                 chunk_size: int = 250, channel_index: int = 0,
+                 resolve_timeout: float = 5.0) -> None:
+        from pylsl import StreamInlet, resolve_byprop
+
+        self.stream_type = stream_type or os.environ.get("NEUROGATE_LSL_TYPE", "EEG")
+        self.stream_name = stream_name or os.environ.get("NEUROGATE_LSL_NAME")
+        self.chunk_size = chunk_size
+        self.channel_index = channel_index
+
+        prop, value = (("name", self.stream_name) if self.stream_name
+                       else ("type", self.stream_type))
+        streams = resolve_byprop(prop, value, timeout=resolve_timeout)
+        if not streams:
+            raise RuntimeError(f"No se encontró un stream LSL con {prop}={value!r}")
+        self._inlet = StreamInlet(streams[0], max_chunklen=chunk_size)
+        info = self._inlet.info()
+        self.sampling_rate = int(round(info.nominal_srate()))
+        self.eeg_channels = list(range(info.channel_count()))
+        self.channel_names = self._read_channel_names(info)
+        self._last_timestamps: list[float] = []
+
+    @staticmethod
+    def _read_channel_names(info) -> list[str]:
+        """Lee las etiquetas de canal de la metadata LSL (o genera ch0..chN)."""
+        n = info.channel_count()
+        names: list[str] = []
+        try:
+            ch = info.desc().child("channels").child("channel")
+            for _ in range(n):
+                names.append(ch.child_value("label") or f"ch{len(names)}")
+                ch = ch.next_sibling()
+        except Exception:  # algunos streams no traen metadata de canales
+            names = []
+        if len(names) != n:
+            names = [f"ch{i}" for i in range(n)]
+        return names
+
+    def get_chunk_2d(self) -> np.ndarray:
+        """Siguiente bloque multicanal (n_canales, chunk_size). Bloquea hasta llenarlo."""
+        samples: list[list[float]] = []
+        self._last_timestamps = []
+        deadline = time.time() + max(2.0, self.chunk_size / max(self.sampling_rate, 1) + 2.0)
+        while len(samples) < self.chunk_size:
+            chunk, ts = self._inlet.pull_chunk(
+                timeout=1.0, max_samples=self.chunk_size - len(samples))
+            if chunk:
+                samples.extend(chunk)
+                self._last_timestamps.extend(ts)
+            elif time.time() >= deadline:
+                raise TimeoutError("el stream LSL no entregó suficientes muestras a tiempo")
+        return np.asarray(samples[:self.chunk_size], dtype=np.float64).T
+
+    def get_chunk(self) -> np.ndarray:
+        """Contrato v1: bloque 1-D de un canal EEG representativo."""
+        return self.get_chunk_2d()[self.channel_index]
+
+    def get_timestamps(self) -> np.ndarray:
+        """Timestamps LSL (segundos) del último bloque leído."""
+        return np.asarray(self._last_timestamps[:self.chunk_size], dtype=np.float64)
+
+    def close(self) -> None:
+        """Cierra el inlet LSL."""
+        try:
+            self._inlet.close_stream()
+        except Exception:
+            pass
+
+    def __enter__(self) -> "LslSource":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+
 def make_source(kind: str | None = None, **kwargs):
     """Devuelve la fuente de señal según ``kind`` o la env var NEUROGATE_SIGNAL_SOURCE.
 
     Valores: ``synthetic`` (default, BrainFlowSource SyntheticBoard),
-    ``dataset`` (DatasetSource), ``simulated`` (SignalSource de la v1).
+    ``dataset`` (DatasetSource), ``lsl`` (LslSource), ``simulated`` (SignalSource v1).
     """
     if kind is None:
         kind = os.environ.get("NEUROGATE_SIGNAL_SOURCE", "synthetic")
@@ -263,6 +350,8 @@ def make_source(kind: str | None = None, **kwargs):
         return BrainFlowSource(**kwargs)
     if kind == "dataset":
         return DatasetSource(**kwargs)
+    if kind == "lsl":
+        return LslSource(**kwargs)
     if kind == "simulated":
         return SignalSource(**kwargs)
     raise ValueError(f"Fuente de señal desconocida: {kind!r}")

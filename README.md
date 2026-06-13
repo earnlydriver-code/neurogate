@@ -90,8 +90,9 @@ proceso en el [blog](https://earnlydriver-code.github.io/neurogate/).
 **v2 en curso** (servicio real; ver `SPEC-V2.md`):
 
 - **Fase A — Señal real:** `signal_source.py` sobre BrainFlow (placa sintética,
-  hardware-ready) + `DatasetSource` (dataset público local), conmutables por
-  configuración.
+  hardware-ready) + `DatasetSource` (dataset público local) + `LslSource`
+  (**Lab Streaming Layer**, el estándar research: acopla cientos de dispositivos
+  EEG sin tocar el resto), conmutables por configuración (`make_source`).
 - **Fase B — Decoder real:** decodificador de *motor imagery* entrenado offline
   sobre **BCI Competition IV 2a** (9 sujetos, 22 canales EEG, 4 clases:
   mano izquierda / mano derecha / pies / lengua). Pipeline **MNE (filtro
@@ -118,6 +119,20 @@ streamlit run neurogate/dashboard_service.py
 
 El despliegue (Docker, TLS, Streamlit Cloud) y el guion de demo de 1 minuto están
 en [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+### SDK de cliente y informe de cumplimiento
+
+- **SDK `neurogate-client`** (`sdk/`): integra una app con el gateway en tres
+  líneas (`pip install ./sdk`). Pide token y consume scopes (intenciones por
+  WebSocket, texto por REST); incluye helpers de administración.
+- **Informe de cumplimiento** (`compliance_report.py`): a partir del log firmado
+  emite un informe verificable (texto/HTML/JSON) que cruza cada decisión con el
+  requisito regulatorio que evidencia. Es la prueba auditable de consentimiento
+  que un comité de ética o un regulador exige.
+
+```powershell
+python compliance_report.py audit_service.jsonl keys/audit_ed25519_public.pem --html informe.html
+```
 
 ### Accuracy del decoder real (Fase B, honesta)
 
